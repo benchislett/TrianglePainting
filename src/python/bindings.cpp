@@ -5,6 +5,7 @@
 
 #include "dna.h"
 #include "evaluate_naive.h"
+#include "evaluate_cuda.h"
 
 namespace nb = nanobind;
 
@@ -23,6 +24,10 @@ NB_MODULE(evoapp, m) {
             return *(DNATri50*)(arg.data());
         })
         .def_rw("polys", &DNATri50::polys);
+    
+    nb::class_<LossState>(m, "LossState")
+        .def(nb::init<>())
+        .def("init", &LossState::init);
 
     m.def("render", [](const DNATri50& dna) {
         size_t shape[3] = { resolution, resolution, 3 };
@@ -30,7 +35,17 @@ NB_MODULE(evoapp, m) {
             tri_render_cpu(dna), 3, shape);
     });
 
+    m.def("render_gpu", [](const DNATri50& dna) {
+        size_t shape[3] = { resolution, resolution, 3 };
+        return nb::ndarray<nb::numpy, const float, nb::shape<2, nb::any>>(
+            tri_render_gpu(dna), 3, shape);
+    });
+
     m.def("loss", [](const DNATri50& dna, nb::ndarray<float, nb::shape<resolution, resolution, 3>, nb::c_contig, nb::device::cpu> arg) {
         return tri_loss_cpu(dna, (const float*) arg.data());
+    });
+
+    m.def("loss_gpu", [](const DNATri50& dna, nb::ndarray<float, nb::shape<resolution, resolution, 3>, nb::c_contig, nb::device::cpu> arg, LossState& state) {
+        return tri_loss_gpu(dna, (const float*) arg.data(), state);
     });
 }
