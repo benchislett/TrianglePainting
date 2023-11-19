@@ -2,13 +2,12 @@
 
 #include "dna.h"
 
-struct LossState {
-    float* target_image;
+float* tri_render_gpu(const DNAT&);
+
+struct LossStateGPU {
+    LossStateGPU(const float* target_image);
+    float loss(const DNAT&);
+
+    float* target;
     float* error_values;
-
-    void init();
 };
-
-float* tri_render_gpu(const DNATri50&);
-
-float tri_loss_gpu(const DNATri50&, const float *target_image, LossState&);

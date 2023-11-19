@@ -28,7 +28,7 @@ target_link_libraries(evoapp PUBLIC evallib)
 include(CheckLanguage)
 check_language(CUDA)
 
-if (DEFINED CMAKE_CUDA_COMPILER)
+if (CMAKE_CUDA_COMPILER)
     enable_language(CUDA)
 
     if(NOT DEFINED CMAKE_CUDA_STANDARD)

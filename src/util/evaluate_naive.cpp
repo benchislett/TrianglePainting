@@ -2,7 +2,7 @@
 
 #include "misc_math.h"
 
-float* tri_render_cpu(const DNATri50& dna) {
+float* tri_render_cpu(const DNAT& dna) {
     float* image_out = (float*) malloc (resolution * resolution * sizeof(float) * 3);
 
     for (int i = 0; i < resolution; i++) {
@@ -21,7 +21,13 @@ float* tri_render_cpu(const DNATri50& dna) {
     return image_out;
 }
 
-float tri_loss_cpu(const DNATri50& dna, const float *target_image) {
+LossStateCPU::LossStateCPU(const float* target_image) {
+    int bytes = target_image_size * sizeof(float);
+    target = (float*) malloc (bytes);
+    memcpy(target, target_image, bytes);
+}
+
+float LossStateCPU::loss(const DNAT& dna) {
     float total = 0.f;
 
     for (int i = 0; i < resolution; i++) {
@@ -32,7 +38,7 @@ float tri_loss_cpu(const DNATri50& dna, const float *target_image) {
             float v = (float) j / (float) resolution;
 
             float3 rgb = color_pixel_blend(u, v, dna);
-            float3 target_rgb = make_float3(target_image[3 * idx], target_image[3 * idx + 1], target_image[3 * idx + 2]);
+            float3 target_rgb = make_float3(target[3 * idx], target[3 * idx + 1], target[3 * idx + 2]);
 
             total += abs_error(rgb, target_rgb);
         }

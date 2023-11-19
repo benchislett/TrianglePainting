@@ -1,39 +1,114 @@
 #pragma once
 
-#include <array>
-#include <tuple>
-#include <cstdlib>
-#include <ctime>
+#include "util_cuda.h"
+#include "misc_math.h"
 
 constexpr int resolution = 200;
 constexpr float alpha = 0.5f;
 
-inline float randf() {
-    static unsigned int seed = 0;
-    if (seed == 0) {
-        seed = static_cast <unsigned int> (time(0));
-        srand(seed);
+constexpr int target_image_size = resolution * resolution * 3;
+
+template<int NVertices>
+struct Polygon {
+    array<float, NVertices> verts_x;
+    array<float, NVertices> verts_y;
+
+    MISC_SYMS Polygon() : verts_x{}, verts_y{} {}
+    MISC_SYMS Polygon(const array<float, NVertices>& vxs, const array<float, NVertices>& vys) : verts_x(vxs), verts_y(vys) {}
+    MISC_SYMS Polygon(const array<pair<float, float>, NVertices> vertices) {
+        for (int i = 0; i < NVertices; i++) {
+            auto [x, y] = vertices[i];
+            verts_x[i] = x;
+            verts_y[i] = y;
+        }
     }
 
-    return static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-}
+    MISC_SYMS pair<float, float> getVertex(int i) const {
+        return make_pair(verts_x[i], verts_y[i]);
+    }
 
-template<int NumPolys, int PolyVerts>
-struct DNA {
-    struct Primitive {
-        std::array<std::pair<float, float>, PolyVerts> vertices;
-        float r, g, b;
-    };
+    MISC_SYMS void setVertex(int i, float x, float y) {
+        verts_x[i] = x;
+        verts_y[i] = y;
+    }
 
-    std::array<Primitive, NumPolys> polys;
+    MISC_SYMS void setVertex(int i, pair<float, float> v) {
+        setVertex(i, v.first, v.second);
+    }
 
-    static inline DNA gen_rand() {
-        DNA out;
-        for (int i = 0; i < NumPolys * (sizeof (Primitive) / sizeof (float)); i++) {
-            ((float*)(&out))[i] = randf();
+    MISC_SYMS array<pair<float, float>, NVertices> transpose() const {
+        array<pair<float, float>, NVertices> vertices;
+        for (int i = 0; i < NVertices; i++) {
+            vertices[i] = getVertex(i);
         }
-        return out;
+        return vertices;
+    }
+
+    MISC_SYMS bool test(float u, float v) const {
+        if constexpr (NVertices == 3) {
+            return point_in_tri(u, v, verts_x[0], verts_y[0], verts_x[1], verts_y[1], verts_x[2], verts_y[2]);
+        } else {
+            return pnpoly(u, v, &verts_x, &verts_y);
+        }
+    }
+
+    static MISC_SYMS constexpr int params() {
+        return 2 * NVertices;
     }
 };
 
-using DNATri50 = DNA<50, 3>;
+template<int PolyVerts>
+struct Primitive {
+    Polygon<PolyVerts> poly;
+    float r, g, b;
+
+    static MISC_SYMS constexpr int params() {
+        return Polygon<PolyVerts>::params() + 3;
+    }
+};
+
+template<int NumPolys, int PolyVerts>
+struct DNA {
+    using DNAPrimT = Primitive<PolyVerts>;
+
+    array<DNAPrimT, NumPolys> primitives;
+
+    static MISC_SYMS constexpr int params() {
+        return NumPolys * DNAPrimT::params();
+    }
+};
+
+constexpr int NPoly = 50;
+constexpr int NVert = 3;
+
+using PolyT = Polygon<NVert>;
+using PrimT = Primitive<NVert>;
+using DNAT = DNA<NPoly, NVert>;
+
+// TODO: new file
+
+MISC_SYMS float3 color_pixel_blend(float u, float v, DNAT dna) {
+    float4 rgba = make_float4(1.f, 1.f, 1.f, 1.f);
+
+    for (int pidx = 0; pidx < NPoly; pidx++) {
+        PrimT primitive = dna.primitives[pidx];
+        if (primitive.poly.test(u, v)) {
+            rgba = over(make_float4(primitive.r, primitive.g, primitive.b, 0.5f), rgba);
+        }
+    }
+
+    return make_float3(rgba.x, rgba.y, rgba.z);
+}
+
+MISC_SYMS float3 color_pixel_layer(float u, float v, DNAT dna) {
+    float3 rgb;
+
+    for (int pidx = 0; pidx < NPoly; pidx++) {
+        PrimT primitive = dna.primitives[pidx];
+        if (primitive.poly.test(u, v)) {
+            rgb = make_float3(primitive.r, primitive.g, primitive.b);
+        }
+    }
+
+    return rgb;
+}

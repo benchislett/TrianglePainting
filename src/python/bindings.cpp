@@ -10,42 +10,73 @@
 namespace nb = nanobind;
 
 NB_MODULE(evoapp, m) {
-    nb::class_<DNATri50::Primitive>(m, "Tri")
-        .def(nb::init<>())
-        .def_rw("vertices", &DNATri50::Primitive::vertices)
-        .def_rw("r", &DNATri50::Primitive::r)
-        .def_rw("g", &DNATri50::Primitive::g)
-        .def_rw("b", &DNATri50::Primitive::b);
-
-    nb::class_<DNATri50>(m, "DNA")
-        .def(nb::init<>())
-        .def_static("random", &DNATri50::gen_rand)
-        .def_static("fromarray", [](nb::ndarray<float, nb::shape<9*50>, nb::c_contig, nb::device::cpu> arg) {
-            return *(DNATri50*)(arg.data());
+    nb::class_<PolyT>(m, "Polygon")
+        .def("__init__", ([](PolyT* t, nb::ndarray<float, nb::shape<2, NVert>, nb::c_contig, nb::device::cpu> arg) {
+            auto tmp = *(const array<pair<float, float>, NVert>*)(arg.data());
+            new (t) PolyT(tmp);
+        }))
+        .def("__init__", ([](PolyT* t, nb::ndarray<float, nb::shape<NVert, 2>, nb::c_contig, nb::device::cpu> arg) {
+            struct _tmp {
+                array<float, NVert> vxs;
+                array<float, NVert> vys;
+            } tmp;
+            tmp = *(const struct _tmp*)(arg.data());
+            new (t) PolyT(tmp.vxs, tmp.vys);
+        }))
+        .def("getVertex", &PolyT::getVertex)
+        .def("setVertex", [](PolyT& p, int i, float x, float y) {
+            p.setVertex(i, x, y);
         })
-        .def_rw("polys", &DNATri50::polys);
-    
-    nb::class_<LossState>(m, "LossState")
-        .def(nb::init<>())
-        .def("init", &LossState::init);
+        .def("setVertex", [](PolyT& p, int i, pair<float, float> vert) {
+            p.setVertex(i, vert);
+        })
+        .def("test", &PolyT::test)
+        .def_rw("verts_x", &PolyT::verts_x)
+        .def_rw("verts_y", &PolyT::verts_y)
+        .def_static("params", &PolyT::params);
 
-    m.def("render", [](const DNATri50& dna) {
+    nb::class_<PrimT>(m, "Primitive")
+        .def(nb::init<>())
+        .def_rw("poly", &PrimT::poly)
+        .def_rw("r", &PrimT::r)
+        .def_rw("g", &PrimT::g)
+        .def_rw("b", &PrimT::b)
+        .def_static("params", &PrimT::params);
+    
+    nb::class_<DNAT>(m, "DNA")
+        .def(nb::init<>())
+        .def_rw("primitives", &DNAT::primitives)
+        .def_static("params", &DNAT::params)
+        .def_static("fromarray", [](nb::ndarray<float, nb::shape<DNAT::params()>, nb::c_contig, nb::device::cpu> arg) {
+            return *(DNAT*)(arg.data());
+        });
+
+    m.def("render", [](const DNAT& dna) {
         size_t shape[3] = { resolution, resolution, 3 };
         return nb::ndarray<nb::numpy, const float, nb::shape<2, nb::any>>(
             tri_render_cpu(dna), 3, shape);
     });
 
-    m.def("render_gpu", [](const DNATri50& dna) {
+#ifdef HAS_CUDA
+    m.def("render_gpu", [](const DNAT& dna) {
         size_t shape[3] = { resolution, resolution, 3 };
         return nb::ndarray<nb::numpy, const float, nb::shape<2, nb::any>>(
             tri_render_gpu(dna), 3, shape);
     });
+#endif
 
-    m.def("loss", [](const DNATri50& dna, nb::ndarray<float, nb::shape<resolution, resolution, 3>, nb::c_contig, nb::device::cpu> arg) {
-        return tri_loss_cpu(dna, (const float*) arg.data());
-    });
+    nb::class_<LossStateCPU>(m, "LossStateCPU")
+        .def("__init__", ([](LossStateCPU* t, nb::ndarray<float, nb::shape<resolution, resolution, 3>, nb::c_contig, nb::device::cpu> arg) {
+            new (t) LossStateCPU((const float*) arg.data());
+        }))
+        .def("loss", &LossStateCPU::loss);
 
-    m.def("loss_gpu", [](const DNATri50& dna, nb::ndarray<float, nb::shape<resolution, resolution, 3>, nb::c_contig, nb::device::cpu> arg, LossState& state) {
-        return tri_loss_gpu(dna, (const float*) arg.data(), state);
-    });
+#ifdef HAS_CUDA
+    nb::class_<LossStateGPU>(m, "LossStateGPU")
+        .def("__init__", ([](LossStateGPU* t, nb::ndarray<float, nb::shape<resolution, resolution, 3>, nb::c_contig, nb::device::cpu> arg) {
+            new (t) LossStateGPU((const float*) arg.data());
+        }))
+        .def("loss", &LossStateGPU::loss);
+#endif
+
 }

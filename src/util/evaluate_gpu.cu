@@ -1,6 +1,7 @@
 #include "evaluate_cuda.h"
 
 #include "dna.h"
+#include "util_cuda.h"
 #include "misc_math.h"
 
 #include <cuda.h>
@@ -9,16 +10,7 @@
 
 #include <cub/cub.cuh>
 
-struct CuDNATri50 {
-    struct Primitive {
-        cuda::std::array<cuda::std::pair<float, float>, 3> vertices;
-        float r, g, b;
-    };
-
-    cuda::std::array<Primitive, 50> polys;
-};
-
-__global__ void render_image(CuDNATri50 dna, float* image_out) {
+__global__ void render_image(DNAT dna, float* image_out) {
     int idx = threadIdx.x + blockDim.x * blockIdx.x;
 
     int i = idx / resolution;
@@ -30,8 +22,7 @@ __global__ void render_image(CuDNATri50 dna, float* image_out) {
     *((float3*)(&image_out[3 * idx])) = color_pixel_blend(u, v, dna);
 }
 
-
-__global__ void subtract_images(CuDNATri50 dna, const float *target_image, float* error) {
+__global__ void subtract_images(DNAT dna, const float *target_image, float* error) {
     int idx = threadIdx.x + blockDim.x * blockIdx.x;
 
     int i = idx / resolution;
@@ -46,19 +37,15 @@ __global__ void subtract_images(CuDNATri50 dna, const float *target_image, float
     error[idx] = abs_error(rgb, target_rgb);
 }
 
-constexpr int target_image_size = resolution * resolution * 3 * sizeof(float);
-
-void LossState::init() {
-    cudaMalloc(&target_image, target_image_size);
-    cudaMalloc(&error_values, target_image_size / 3);
+void LossStateGPU::LossStateGPU(const float* host_target) {
+    int bytes = target_image_size * sizeof(float);
+    cudaMalloc(&target, bytes);
+    cudaMalloc(&error_values, bytes / 3);
+    cudaMemcpy(target, host_target, bytes, ::cudaMemcpyHostToDevice);
 }
 
-float tri_loss_gpu(const DNATri50& dna, const float *target_image, LossState& state) {
-    CuDNATri50 dna_alt = *(CuDNATri50*)(&dna);
-
-    cudaMemcpy(state.target_image, target_image, target_image_size, ::cudaMemcpyHostToDevice);
-
-    subtract_images<<<resolution, resolution>>>(dna_alt, state.target_image, state.error_values);
+float LossStateGPU::loss(const DNAT& dna) {
+    subtract_images<<<resolution, resolution>>>(dna_alt, target, error_values);
 
     float* device_answer = nullptr;
     float* d_temp_storage = NULL;

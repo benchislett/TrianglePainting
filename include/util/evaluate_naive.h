@@ -2,9 +2,11 @@
 
 #include "dna.h"
 
-#include <cstdint>
-#include <vector>
+float* tri_render_cpu(const DNAT&);
 
-float* tri_render_cpu(const DNATri50&);
+struct LossStateCPU {
+    LossStateCPU(const float* target_image);
+    float loss(const DNAT&);
 
-float tri_loss_cpu(const DNATri50&, const float *target_image);
+    float* target;
+};
