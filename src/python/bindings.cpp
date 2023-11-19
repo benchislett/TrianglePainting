@@ -12,16 +12,16 @@ namespace nb = nanobind;
 NB_MODULE(evoapp, m) {
     nb::class_<PolyT>(m, "Polygon")
         .def("__init__", ([](PolyT* t, nb::ndarray<float, nb::shape<2, NVert>, nb::c_contig, nb::device::cpu> arg) {
-            auto tmp = *(const array<pair<float, float>, NVert>*)(arg.data());
-            new (t) PolyT(tmp);
-        }))
-        .def("__init__", ([](PolyT* t, nb::ndarray<float, nb::shape<NVert, 2>, nb::c_contig, nb::device::cpu> arg) {
             struct _tmp {
                 array<float, NVert> vxs;
                 array<float, NVert> vys;
             } tmp;
             tmp = *(const struct _tmp*)(arg.data());
             new (t) PolyT(tmp.vxs, tmp.vys);
+        }))
+        .def("__init__", ([](PolyT* t, nb::ndarray<float, nb::shape<NVert, 2>, nb::c_contig, nb::device::cpu> arg) {
+            auto tmp = *(const array<pair<float, float>, NVert>*)(arg.data());
+            new (t) PolyT(tmp);
         }))
         .def("getVertex", &PolyT::getVertex)
         .def("setVertex", [](PolyT& p, int i, float x, float y) {
@@ -30,6 +30,7 @@ NB_MODULE(evoapp, m) {
         .def("setVertex", [](PolyT& p, int i, pair<float, float> vert) {
             p.setVertex(i, vert);
         })
+        .def("transpose", &PolyT::transpose)
         .def("test", &PolyT::test)
         .def_rw("verts_x", &PolyT::verts_x)
         .def_rw("verts_y", &PolyT::verts_y)
