@@ -9,7 +9,7 @@ MISC_SYMS float sign(float p1x, float p1y, float p2x, float p2y, float p3x, floa
 
 /* https://wrfranklin.org/Research/Short_Notes/pnpoly.html */
 template<int nvert>
-MISC_SYMS bool pnpoly(float testx, float testy, float *vertx, float *verty)
+MISC_SYMS bool pnpoly(float testx, float testy, const float *vertx, const float *verty)
 {
   int i, j, c = 0;
   for (i = 0, j = nvert-1; i < nvert; j = i++) {

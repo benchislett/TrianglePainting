@@ -46,10 +46,34 @@ NB_MODULE(evoapp, m) {
     
     nb::class_<DNAT>(m, "DNA")
         .def(nb::init<>())
+        .def(nb::init<DNAT>())
         .def_rw("primitives", &DNAT::primitives)
         .def_static("params", &DNAT::params)
         .def_static("fromarray", [](nb::ndarray<float, nb::shape<DNAT::params()>, nb::c_contig, nb::device::cpu> arg) {
-            return *(DNAT*)(arg.data());
+            DNAT res;
+            int idx = 0;
+            const float* data = arg.data();
+            int stride = arg.stride(0);
+            for (int i = 0; i < NPoly; i++) {
+                Primitive<NVert> &p = res.primitives[i];
+                for (int j = 0; j < NVert; j++) { p.poly.verts_x[j] = data[idx]; idx += stride; p.poly.verts_y[j] = data[idx]; idx += stride; }
+                p.r = data[idx]; idx += stride;
+                p.g = data[idx]; idx += stride;
+                p.b = data[idx]; idx += stride;
+            }
+            return res;
+        })
+        .def("toarray", [](const DNAT& dna) {
+            float* data = (float*) malloc(DNAT::params() * sizeof(float));
+            int idx = 0;
+            for (int i = 0; i < NPoly; i++) {
+                Primitive p = dna.primitives[i];
+                for (int j = 0; j < NVert; j++) { data[idx++] = p.poly.verts_x[j]; data[idx++] = p.poly.verts_y[j]; }
+                data[idx++] = p.r; data[idx++] = p.g; data[idx++] = p.b;
+            }
+            size_t shape[1] = { DNAT::params() };
+            return nb::ndarray<nb::numpy, float>(
+                data, 1, shape);
         });
 
     m.def("render", [](const DNAT& dna) {

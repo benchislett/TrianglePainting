@@ -45,11 +45,7 @@ struct Polygon {
     }
 
     MISC_SYMS bool test(float u, float v) const {
-        if constexpr (NVertices == 3) {
-            return point_in_tri(u, v, verts_x[0], verts_y[0], verts_x[1], verts_y[1], verts_x[2], verts_y[2]);
-        } else {
-            return pnpoly(u, v, &verts_x, &verts_y);
-        }
+        return pnpoly<NVertices>(u, v, &verts_x[0], &verts_y[0]);
     }
 
     static MISC_SYMS constexpr int params() {
@@ -72,6 +68,9 @@ struct DNA {
     using DNAPrimT = Primitive<PolyVerts>;
 
     array<DNAPrimT, NumPolys> primitives;
+
+    MISC_SYMS DNA() {}
+    MISC_SYMS DNA(const DNA& d) : primitives(d.primitives) {}
 
     static MISC_SYMS constexpr int params() {
         return NumPolys * DNAPrimT::params();

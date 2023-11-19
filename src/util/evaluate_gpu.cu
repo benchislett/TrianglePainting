@@ -57,14 +57,10 @@ LossStateGPU::LossStateGPU(const float* host_target) {
 float LossStateGPU::loss(const DNAT& dna) {
     subtract_images<<<resolution, resolution>>>(dna, target, error_values);
 
-    cudaMemset(device_answer, 0xff, sizeof(float));
-
     cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, error_values, device_answer, resolution * resolution);
 
     float answer;
     cudaMemcpy(&answer, device_answer, sizeof(float), ::cudaMemcpyDeviceToHost);
-
-    cudaDeviceSynchronize();
 
     return answer;
 }

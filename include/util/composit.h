@@ -2,7 +2,7 @@
 
 #include "dna.h"
 
-MISC_SYMS float3 color_pixel_blend(float u, float v, DNAT dna) {
+MISC_SYMS float3 color_pixel_blend(float u, float v, const DNAT& dna) {
     float4 rgba = make_float4(1.f, 1.f, 1.f, 1.f);
 
     for (int pidx = 0; pidx < NPoly; pidx++) {
@@ -15,7 +15,7 @@ MISC_SYMS float3 color_pixel_blend(float u, float v, DNAT dna) {
     return make_float3(rgba.x, rgba.y, rgba.z);
 }
 
-MISC_SYMS float3 color_pixel_layer(float u, float v, DNAT dna) {
+MISC_SYMS float3 color_pixel_layer(float u, float v, const DNAT& dna) {
     float3 rgb;
 
     for (int pidx = 0; pidx < NPoly; pidx++) {
