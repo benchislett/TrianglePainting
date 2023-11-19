@@ -10,4 +10,8 @@ struct LossStateGPU {
 
     float* target;
     float* error_values;
+
+    float* d_temp_storage;
+    size_t temp_storage_bytes;
+    float* device_answer;
 };

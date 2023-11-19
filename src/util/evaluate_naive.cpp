@@ -1,6 +1,9 @@
 #include "evaluate_naive.h"
 
 #include "misc_math.h"
+#include "composit.h"
+
+#include <cstring>
 
 float* tri_render_cpu(const DNAT& dna) {
     float* image_out = (float*) malloc (resolution * resolution * sizeof(float) * 3);
@@ -28,7 +31,7 @@ LossStateCPU::LossStateCPU(const float* target_image) {
 }
 
 float LossStateCPU::loss(const DNAT& dna) {
-    float total = 0.f;
+    double total = 0.f;
 
     for (int i = 0; i < resolution; i++) {
         for (int j = 0; j < resolution; j++) {
@@ -44,5 +47,5 @@ float LossStateCPU::loss(const DNAT& dna) {
         }
     }
 
-    return total;
+    return (float) total;
 }

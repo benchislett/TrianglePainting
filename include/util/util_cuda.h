@@ -1,7 +1,6 @@
 #pragma once
 
 #ifdef __CUDACC__
-#define HAS_CUDA
 #define MISC_SYMS __host__ __device__ inline
 
 #include <cuda/std/array>
@@ -13,8 +12,7 @@ using array = cuda::std::array<T, N>;
 template<typename T1, typename T2>
 using pair = cuda::std::pair<T1, T2>;
 
-template<typename T1, typename T2>
-using make_pair = cuda::std::make_pair<T1, T2>;
+using cuda::std::make_pair;
 
 #else
 #define MISC_SYMS inline
