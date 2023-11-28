@@ -1,0 +1,4 @@
+name = "Paint"
+uuid = "daf81b02-5d2c-4ddd-a85e-bef6c8936a4a"
+authors = ["Benjamin Chislett <chislett.ben@gmail.com>"]
+version = "0.1.0"
