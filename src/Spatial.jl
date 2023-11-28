@@ -2,8 +2,6 @@ module Spatial2D
 
 export contains
 
-# include("Shapes.jl")
-
 using ..Shapes2D
 
 contains(::AbstractShape, u, v) = error("Not implemented")
