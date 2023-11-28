@@ -2,3 +2,6 @@ name = "Paint"
 uuid = "daf81b02-5d2c-4ddd-a85e-bef6c8936a4a"
 authors = ["Benjamin Chislett <chislett.ben@gmail.com>"]
 version = "0.1.0"
+
+[deps]
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
