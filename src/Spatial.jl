@@ -6,7 +6,7 @@ using ..Shapes2D
 
 contains(::AbstractShape, u, v) = error("Not implemented")
 
-function contains(p::Polygon{N, T}, point) where {N, T}
+function contains(p::Polygon{N, T}, point::Pair{T, T}) where {N, T}
     c::Bool = false
     j::Int = N
     testx, testy = point

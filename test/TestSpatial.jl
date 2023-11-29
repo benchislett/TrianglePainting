@@ -4,7 +4,7 @@ using Paint.Shapes2D
 using Paint.Spatial2D
 
 @testset verbose = true "Right Triangle Containment" begin
-    tri = Polygon{3, Float64}([Pair(0.0, 0.0), Pair(1.0, 0.0), Pair(0.0, 1.0)])
+    tri = Triangle{Float64}([Pair(0.0, 0.0), Pair(1.0, 0.0), Pair(0.0, 1.0)])
 
     @testset "Contains points near origin" begin
         @test Spatial2D.contains(tri, Pair(0.00001, 0.00001))
