@@ -49,6 +49,7 @@ function refine(N, savevec, best, baseloss, target, img)
 end
 
 function main(N)
+
     anim = Animation()
 
     target = float.(load("lisa.png"))
@@ -57,11 +58,11 @@ function main(N)
 
     f()::Float32 = 2 * rand(Float32) - 0.5
 
-    nsplit = 1000
+    nsplit = 100
 
     prevloss = imloss(target, img)
 
-    @time for i = 1:1000
+    @time for i = 1:100
         prevloss = imloss(target, img)
 
         best = copy(prevloss)
@@ -70,10 +71,9 @@ function main(N)
         tasks = []
         for jj = 1:nsplit
             t = Threads.@spawn begin
-                currvec, currbest = run(floor(N / nsplit), copy(prevloss), $target, $img)
+                currvec, currbest = run(floor(N / nsplit), copy(prevloss), target, img)
             end
 
-            # schedule(t)
             push!(tasks, t)
         end
 
@@ -92,7 +92,7 @@ function main(N)
         tasks = []
         for jj = 1:nsplit
             t = Threads.@spawn begin
-                currvec, currbest = refine(floor(N / nsplit), $savevec, $best, $prevloss, $target, $img)
+                currvec, currbest = refine(floor(N / nsplit), savevec, best, prevloss, target, img)
             end
 
             push!(tasks, t)
@@ -111,9 +111,11 @@ function main(N)
         tri = Triangle{Float32}(savevec)
         col = averagecolor(target, tri)
 
-        draw!(img, tri, col)
-        draw!(img_big, tri, col)
-        frame(anim, plot(img))
+        if best < prevloss
+            draw!(img, tri, col)
+            draw!(img_big, tri, col)
+            frame(anim, plot(img))
+        end
     end
 
     println(imloss(target, img))
@@ -123,5 +125,14 @@ function main(N)
     gif(anim, "output.gif")
 end
 
-main(1)
-main(100000)
+# @profview main(10000)
+
+target = float.(load("lisa.png"))
+img = zeros(RGBA{Float32}, 200, 200)
+
+initial = MVector{6,Float32}([rand(), rand(), rand(), rand(), rand(), rand()])
+tri = Triangle{Float32}(initial)
+col = averagecolor(target, tri)
+
+# drawloss(target, img, tri, col)
+@profview run(100, 9999999.0f0, target, img)
