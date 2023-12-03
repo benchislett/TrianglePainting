@@ -1,10 +1,13 @@
 module Shapes2D
 
+import Base.eltype
+
 export AbstractShape, AbstractPolygon
 export Polygon
 export Triangle
 
 export getvertex
+export eltype
 
 using StaticArrays
 
@@ -15,6 +18,8 @@ abstract type AbstractPolygon <: AbstractShape end
 struct Polygon{N,T<:AbstractFloat} <: AbstractPolygon
     vertices::SVector{N,Pair{T,T}}
 end
+
+eltype(::Polygon{N,T}) where {N,T} = T
 
 getvertex(p::Polygon, i) = getindex(p.vertices, i)
 min(p::Polygon) = reduce((x, y) -> Pair(Base.min(x.first, y.first), Base.min(x.second, y.second)), p.vertices)
