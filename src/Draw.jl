@@ -135,7 +135,9 @@ end
 function draw!(img, shape, colour)
     w, h = size(img)
 
-    rast(shape, w, h, @inline((i, j, u, v) -> @inbounds img[i, j] = colour))
+    let col = colour
+        rast(shape, w, h, @inline((i, j, u, v) -> @inbounds img[i, j] = col))
+    end
 end
 
 function drawloss(target, background, shape, colour)

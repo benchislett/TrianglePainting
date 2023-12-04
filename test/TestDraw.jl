@@ -135,4 +135,4 @@ tri = Triangle{Float32}(initial)
 col = averagecolor(target, tri)
 
 # drawloss(target, img, tri, col)
-@profview run(100, 9999999.0f0, target, img)
+@btime run(100, 9999999.0f0, $target, $img)
