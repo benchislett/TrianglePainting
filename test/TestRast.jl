@@ -35,18 +35,18 @@ shape2 = Triangle{Float64}(v1, v2, v3)
 # println(count)
 
 target = float.(load("lisa.png"))
-img = zeros(RGBA{Float32}, 200, 200)
-img2 = zeros(RGBA{Float64}, 200, 200)
+img = zeros(RGB{Float32}, 200, 200)
+img2 = zeros(RGB{Float64}, 200, 200)
 
 col = averagecolor(target, shape)
 
-@btime drawloss($target, $img, $shape2, $col)
-@btime drawloss($target, $img, $shape, $col)
+# @btime drawloss($target, $img, $shape2, $col)
+# @btime drawloss($target, $img, $shape, $col)
 
-# draw!(img, shape, col)
+draw!(img, shape, col)
 
-# col2 = averagecolor(target, shape2)
-# draw!(img2, shape2, col2)
+col2 = averagecolor(target, shape2)
+draw!(img2, shape2, col2)
 
-# save("output.png", img)
-# save("output2.png", img2)
+save("output.png", img)
+save("output2.png", img2)

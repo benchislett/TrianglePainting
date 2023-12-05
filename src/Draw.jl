@@ -24,8 +24,39 @@ function shaperange(shape, w, h)
     return ((i, j) for i = max(1, toxcoord(minx, w)):min(w, toxcoord(maxx, w) + 1) for j = max(1, toycoord(miny, h)):min(h, toycoord(maxy, h) + 1))
 end
 
+mutable struct DrawRasterState{T<:AbstractFloat}
+    img::Array{RGB{T},2}
+    col::RGB{T}
+end
+
+mutable struct DrawlossRasterState{T<:AbstractFloat}
+    target::Array{RGB{T},2}
+    background::Array{RGB{T},2}
+    colour::RGB{T}
+    total::T
+end
+
+mutable struct ColourRasterState{T<:AbstractFloat}
+    target::Array{RGB{T},2}
+    colour::RGB{T}
+    count::Int
+end
+
+function rasterfunc(i, j, u, v, state::DrawRasterState{T}) where {T}
+    @inbounds state.img[i, j] = state.col
+end
+
+function rasterfunc(i, j, u, v, state::DrawlossRasterState{T}) where {T}
+    @inbounds state.total = state.total + absdiff(state.colour, state.target[i, j]) - absdiff(state.background[i, j], state.target[i, j])
+end
+
+function rasterfunc(i, j, u, v, state::ColourRasterState{T}) where {T}
+    @inbounds state.colour = state.colour + state.target[i, j]
+    state.count = state.count + 1
+end
+
 # http://www.sunshine2k.de/coding/java/TriangleRasterization/TriangleRasterization.html
-function rasttop(shape::Triangle{Float32}, w, h, f)
+function rasttop(shape::Triangle{Float32}, w, h, state)
     v1x, v1y = getvertex(shape, 1)
     v2x, v2y = getvertex(shape, 2)
     v3x, v3y = getvertex(shape, 3)
@@ -49,7 +80,7 @@ function rasttop(shape::Triangle{Float32}, w, h, f)
     while y >= max(1, toycoord(v1y, h))
         for x = max(1, toxcoord(curx1, w)):min(w, toxcoord(curx2, w))
             u, v = uv(Float32, x, y, w, h)
-            f(x, y, u, v)
+            rasterfunc(x, y, u, v, state)
         end
         y = y - 1
         curx1 -= invslope1 / Float32(h)
@@ -57,7 +88,7 @@ function rasttop(shape::Triangle{Float32}, w, h, f)
     end
 end
 
-function rastbot(shape::Triangle{Float32}, w, h, f)
+function rastbot(shape::Triangle{Float32}, w, h, state)
     v1x, v1y = getvertex(shape, 1)
     v2x, v2y = getvertex(shape, 2)
     v3x, v3y = getvertex(shape, 3)
@@ -81,7 +112,7 @@ function rastbot(shape::Triangle{Float32}, w, h, f)
     while y <= min(h, toycoord(v2y, h))
         for x = max(1, toxcoord(curx1, w)):min(w, toxcoord(curx2, w))
             u, v = uv(Float32, x, y, w, h)
-            f(x, y, u, v)
+            rasterfunc(x, y, u, v, state)
         end
         y = y + 1
         curx1 += invslope1 / Float32(h)
@@ -89,7 +120,7 @@ function rastbot(shape::Triangle{Float32}, w, h, f)
     end
 end
 
-function rast(shape::Triangle{Float32}, w, h, f)
+function rast(shape::Triangle{Float32}, w, h, state)
     v1, v2, v3 = shape.vertices
 
     # sort vertices ascending
@@ -106,18 +137,18 @@ function rast(shape::Triangle{Float32}, w, h, f)
     end
 
     if v2.second == v3.second
-        rastbot(Triangle{Float32}(v1, v2, v3), w, h, f)
+        rastbot(Triangle{Float32}(v1, v2, v3), w, h, state)
     elseif v1.second == v2.second
-        rasttop(Triangle{Float32}(v1, v2, v3), w, h, f)
+        rasttop(Triangle{Float32}(v1, v2, v3), w, h, state)
     else
         x4 = v1.first + ((v2.second - v1.second) / (v3.second - v1.second)) * (v3.first - v1.first)
         v4 = Pair(x4, v2.second)
-        rastbot(Triangle{Float32}(v1, v2, v4), w, h, f)
-        rasttop(Triangle{Float32}(v2, v4, v3), w, h, f)
+        rastbot(Triangle{Float32}(v1, v2, v4), w, h, state)
+        rasttop(Triangle{Float32}(v2, v4, v3), w, h, state)
     end
 end
 
-function rast(shape, w, h, f)
+function rast(shape, w, h, state)
     tocoord(x) = Int(floor(w * x))
     minx, miny = Shapes2D.min(shape)
     maxx, maxy = Shapes2D.max(shape)
@@ -126,7 +157,7 @@ function rast(shape, w, h, f)
         for x in max(1, tocoord(minx)):min(w, tocoord(maxx) + 1)
             u, v = uv(eltype(shape), x, y, w, h)
             if Spatial2D.contains(shape, Pair(u, v))
-                f(x, y, u, v)
+                rasterfunc(x, y, u, v, state)
             end
         end
     end
@@ -135,34 +166,27 @@ end
 function draw!(img, shape, colour)
     w, h = size(img)
 
-    let col = colour
-        rast(shape, w, h, @inline((i, j, u, v) -> @inbounds img[i, j] = col))
-    end
+    state = DrawRasterState{eltype(shape)}(img, colour)
+    rast(shape, w, h, state)
+    # let col = colour
+    #     rast(shape, w, h, @inline((i, j, u, v) -> @inbounds img[i, j] = col))
+    # end
 end
 
 function drawloss(target, background, shape, colour)
     w, h = size(target)
 
-    total::Float32 = 0.0f0
-
-    rast(shape, w, h, @inline((i, j, u, v) -> begin
-        @inbounds total = total + absdiff(colour, target[i, j]) - absdiff(background[i, j], target[i, j])
-    end))
-
-    total
+    state = DrawlossRasterState{eltype(shape)}(target, background, colour, zero(eltype(shape)))
+    rast(shape, w, h, state)
+    state.total
 end
 
 function averagecolor(target, shape)
     w, h = size(target)
 
-    col::RGBA{Float32} = RGBA{Float32}(0, 0, 0, 0)
-    n::Int = 0
-    rast(shape, w, h, @inline((i, j, u, v) -> begin
-        @inbounds col = col + target[i, j]
-        n = n + 1
-    end))
-
-    col / n
+    state = ColourRasterState{eltype(shape)}(target, RGB{eltype(shape)}(0, 0, 0), 0)
+    rast(shape, w, h, state)
+    state.colour / state.count
 end
 
 function imloss(img1, img2)
