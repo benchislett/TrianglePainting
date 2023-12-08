@@ -1,5 +1,5 @@
 import Test: @test, @testset
-using ImageView, Images, Plots, FileIO
+using Images, Plots, FileIO
 using StaticArrays
 using BenchmarkTools
 using Evolutionary
@@ -8,6 +8,8 @@ using Paint.Draw2D
 
 import Random
 Random.seed!(1234)
+
+ENV["GKSwstype"]="nul"
 
 function run(N::Int, best_x, target, img)
     baseloss = copy(best_x)
@@ -58,7 +60,7 @@ function main(N)
 
     f()::Float32 = 2 * rand(Float32) - 0.5
 
-    nsplit = 10
+    nsplit = 1
 
     prevloss = imloss(target, img)
 
@@ -80,7 +82,7 @@ function main(N)
         for jj = 1:nsplit
             t = Threads.@spawn begin
                 vectmp, besttmp = run(Int(floor(N / nsplit)), copy(prevloss), target, img)
-                refine(Int(floor(N / nsplit)), vectmp, besttmp, copy(prevloss), target, img)
+                # refine(Int(floor(N / nsplit)), vectmp, besttmp, copy(prevloss), target, img)
             end
 
             push!(tasks, t)
@@ -137,7 +139,7 @@ function main(N)
     img
 end
 
-# main(10000)
+main(100000)
 
 # target = float.(load("lisa.png"))
 # img = zeros(RGB{Float32}, 200, 200)
