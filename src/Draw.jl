@@ -5,6 +5,7 @@ using Images
 export draw!
 export imloss, drawloss, averagecolor
 export rast
+export RastAlgorithmPointwise, RastAlgorithmScanline
 
 using ..Spatial2D
 using ..Shapes2D
@@ -125,7 +126,27 @@ function rastbot(shape::Triangle{Float32}, w, h, state)
     state
 end
 
-function rast(shape::Triangle{Float32}, w, h, state)
+abstract type RastAlgorithm end
+struct RastAlgorithmScanline <: RastAlgorithm end
+struct RastAlgorithmPointwise <: RastAlgorithm end
+
+function rast(shape, w, h, state, ::RastAlgorithmPointwise)
+    tocoord(x) = Int(floor(w * x))
+    minx, miny = Shapes2D.min(shape)
+    maxx, maxy = Shapes2D.max(shape)
+
+    for y in max(1, tocoord(miny)):min(h, tocoord(maxy) + 1)
+        for x in max(1, tocoord(minx)):min(w, tocoord(maxx) + 1)
+            u, v = uv(eltype(shape), x, y, w, h)
+            if Spatial2D.contains(shape, Pair(u, v))
+                state = rasterfunc(x, y, u, v, state)
+            end
+        end
+    end
+    state
+end
+
+function rast(shape::Triangle{Float32}, w, h, state, ::RastAlgorithmScanline)
     v1, v2, v3 = shape.vertices
 
     # sort vertices ascending
@@ -154,42 +175,26 @@ function rast(shape::Triangle{Float32}, w, h, state)
     state
 end
 
-function rast(shape, w, h, state)
-    tocoord(x) = Int(floor(w * x))
-    minx, miny = Shapes2D.min(shape)
-    maxx, maxy = Shapes2D.max(shape)
-
-    for y in max(1, tocoord(miny)):min(h, tocoord(maxy) + 1)
-        for x in max(1, tocoord(minx)):min(w, tocoord(maxx) + 1)
-            u, v = uv(eltype(shape), x, y, w, h)
-            if Spatial2D.contains(shape, Pair(u, v))
-                state = rasterfunc(x, y, u, v, state)
-            end
-        end
-    end
-    state
-end
-
-function draw!(img, shape, colour)
+function draw!(img, shape, colour, alg = RastAlgorithmPointwise())
     w, h = size(img)
 
     state = DrawRasterState{eltype(shape), typeof(img)}(img, colour)
-    rast(shape, w, h, state)
+    rast(shape, w, h, state, alg)
 end
 
-function drawloss(target, background, shape, colour)
+function drawloss(target, background, shape, colour, alg = RastAlgorithmPointwise())
     w, h = size(target)
 
     state = DrawlossRasterState{eltype(shape), typeof(target)}(target, background, colour, zero(eltype(shape)))
-    state = rast(shape, w, h, state)
+    state = rast(shape, w, h, state, alg)
     state.total
 end
 
-function averagecolor(target, shape)
+function averagecolor(target, shape, alg = RastAlgorithmPointwise())
     w, h = size(target)
 
     state = ColourRasterState{eltype(shape), typeof(target)}(target, RGB{eltype(shape)}(0, 0, 0), 0)
-    state = rast(shape, w, h, state)
+    state = rast(shape, w, h, state, alg)
     state.colour / state.count
 end
 

@@ -16,16 +16,16 @@ function main()
     baseloss::Float32 = imloss(target, img)
 
     function getloss(tri::Triangle{Float32})::Float32
-        col::RGB{Float32} = averagecolor(target, tri)
-        baseloss + drawloss(target, img, tri, col)
+        col::RGB{Float32} = averagecolor(target, tri, RastAlgorithmScanline())
+        baseloss + drawloss(target, img, tri, col, RastAlgorithmScanline())
     end
 
     function getloss_gpu(tri::Triangle{Float32})::Float32
-        col::RGB{Float32} = averagecolor(target_gpu, tri)
-        baseloss + drawloss(target_gpu, img_gpu, tri, col)
+        col::RGB{Float32} = averagecolor(target_gpu, tri, RastAlgorithmPointwise())
+        baseloss + drawloss(target_gpu, img_gpu, tri, col, RastAlgorithmPointwise())
     end
 
-    N::Int = 10000000
+    N::Int = 1000000
 
     rngs = rand(SVector{6,Float32}, N)
     curngs = cu(rngs)
