@@ -5,6 +5,9 @@ using BenchmarkTools
 using Evolutionary
 using Paint.Shapes2D
 using Paint.Draw2D
+using Paint.Spatial2D
+
+using CUDA
 
 import Random
 Random.seed!(1234)
@@ -33,6 +36,55 @@ function run(N::Int, best_x, target, img)
     savevec_x, best_x
 end
 
+function getloss_gpu!(tris, rs, gs, bs, amounts, losses, target_d, img_d, NTris)
+    tid::Int = threadIdx().x
+    bid::Int = blockIdx().x
+    gid::Int = (bid - 1) * blockDim().x + tid
+
+    i, j = bid, tid
+    w, h = size(target_d)
+
+    u, v = Draw2D.uv(Float32, i, j, w, h)
+    for tri_idx = 1:NTris
+        tri::Triangle{Float32} = tris[tri_idx]
+        if Spatial2D.contains(tri, Pair(u, v))
+            @inbounds CUDA.atomic_add!(pointer(rs, tri_idx), target_d[i, j].r)
+            @inbounds CUDA.atomic_add!(pointer(gs, tri_idx), target_d[i, j].g)
+            @inbounds CUDA.atomic_add!(pointer(bs, tri_idx), target_d[i, j].b)
+            CUDA.atomic_add!(pointer(amounts, tri_idx), UInt32(1))
+        end
+    end
+
+    for tri_idx = 1:NTris
+        tri::Triangle{Float32} = tris[tri_idx]
+        if Spatial2D.contains(tri, Pair(u, v))
+            col::RGB{Float32} = RGB{Float32}(rs[tri_idx], gs[tri_idx], bs[tri_idx]) / Float32(amounts[tri_idx])
+            lossdiff::Float32 = Draw2D.absdiff(col, target_d[i, j]) - Draw2D.absdiff(img_d[i, j], target_d[i, j])
+            CUDA.atomic_add!(pointer(losses, tri_idx), lossdiff)
+        end
+    end
+
+    return
+end
+
+function run_gpu(N::Int, best_x, target, img)
+    curngs = CUDA.rand(SVector{6,Float32}, N)
+    target_gpu = cu(target)
+    img_gpu = cu(img)
+    device_losses = CUDA.zeros(Float32, N)
+    device_rs = CUDA.zeros(Float32, N)
+    device_gs = CUDA.zeros(Float32, N)
+    device_bs = CUDA.zeros(Float32, N)
+    device_sums = CUDA.zeros(UInt32, N)
+
+    blobs_arr = map(SVector{6,Float32}, map(vec -> 2 .* vec .- 0.5, curngs))
+    device_arr = map(Triangle{Float32}, blobs_arr)
+    CUDA.@sync begin @cuda threads=200 blocks=200 getloss_gpu!(device_arr, device_rs, device_gs, device_bs, device_sums, device_losses, target_gpu, img_gpu, N) end
+    minloss, minidx = findmin(device_losses)
+
+    CUDA.@allowscalar blobs_arr[minidx], best_x + minloss
+end
+
 function refine(N::Int, savevec, best, baseloss, target, img)
     for j = 1:N
         initial::MVector{6,Float32} = savevec .+ (randn(Float32, 6) * 0.1)
@@ -50,7 +102,25 @@ function refine(N::Int, savevec, best, baseloss, target, img)
     savevec, best
 end
 
-function main(N)
+function refine_gpu(N::Int, savevec, best_x, baseloss, target, img)
+    curngs = CUDA.rand(SVector{6,Float32}, N)
+    target_gpu = cu(target)
+    img_gpu = cu(img)
+    device_losses = CUDA.zeros(Float32, N)
+    device_rs = CUDA.zeros(Float32, N)
+    device_gs = CUDA.zeros(Float32, N)
+    device_bs = CUDA.zeros(Float32, N)
+    device_sums = CUDA.zeros(UInt32, N)
+
+    blobs_arr = map(SVector{6,Float32}, map(vec -> savevec + (vec .- 0.5f0) .* 0.1f0, curngs))
+    device_arr = map(Triangle{Float32}, blobs_arr)
+    CUDA.@sync begin @cuda threads=200 blocks=200 getloss_gpu!(device_arr, device_rs, device_gs, device_bs, device_sums, device_losses, target_gpu, img_gpu, N) end
+    minloss, minidx = findmin(device_losses)
+
+    CUDA.@allowscalar blobs_arr[minidx], baseloss + minloss
+end
+
+function main(N, nsplit)
 
     anim = Animation()
 
@@ -59,8 +129,6 @@ function main(N)
     img_big = zeros(RGB{Float32}, 1024, 1024)
 
     f()::Float32 = 2 * rand(Float32) - 0.5
-
-    nsplit = 1
 
     prevloss = imloss(target, img)
 
@@ -81,8 +149,11 @@ function main(N)
         tasks = []
         for jj = 1:nsplit
             t = Threads.@spawn begin
-                vectmp, besttmp = run(Int(floor(N / nsplit)), copy(prevloss), target, img)
-                # refine(Int(floor(N / nsplit)), vectmp, besttmp, copy(prevloss), target, img)
+                vectmp, besttmp = run_gpu(Int(floor(N / nsplit)), copy(prevloss), target, img)
+                for i=1:10
+                    vectmp, besttmp = refine_gpu(Int(floor(N / nsplit)), vectmp, besttmp, copy(prevloss), target, img)
+                end
+                refine_gpu(Int(floor(N / nsplit)), vectmp, besttmp, copy(prevloss), target, img)
             end
 
             push!(tasks, t)
@@ -139,7 +210,7 @@ function main(N)
     img
 end
 
-main(100000)
+main(1000000, 10)
 
 # target = float.(load("lisa.png"))
 # img = zeros(RGB{Float32}, 200, 200)

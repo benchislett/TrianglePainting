@@ -6,6 +6,7 @@ export draw!
 export imloss, drawloss, averagecolor
 export rast
 export RastAlgorithmPointwise, RastAlgorithmScanline
+export uv, absdiff
 
 using ..Spatial2D
 using ..Shapes2D
@@ -15,6 +16,7 @@ absdiff(r1, r2) = abs(r1.r - r2.r) + abs(r1.g - r2.g) + abs(r1.b - r2.b)
 function uv(::Type{T}, i, j, w, h) where {T<:Real}
     (T(i) - T(0.5)) / T(w), (T(j) - T(0.5)) / T(h)
 end
+
 toxcoord(x, w) = Int(floor(w * x))
 toycoord(x, h) = Int(floor(h * x))
 
