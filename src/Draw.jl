@@ -134,12 +134,11 @@ struct RastAlgorithmScanline <: RastAlgorithm end
 struct RastAlgorithmPointwise <: RastAlgorithm end
 
 function rast(shape, w, h, state, ::RastAlgorithmPointwise)
-    tocoord(x) = Int(floor(w * x))
     minx, miny = Shapes2D.min(shape)
     maxx, maxy = Shapes2D.max(shape)
 
-    for y in max(1, tocoord(miny)):min(h, tocoord(maxy) + 1)
-        for x in max(1, tocoord(minx)):min(w, tocoord(maxx) + 1)
+    for y in max(1, toycoord(miny, h)):min(h, toycoord(maxy, h) + 1)
+        for x in max(1, toxcoord(minx, w)):min(w, toxcoord(maxx, w) + 1)
             u, v = uv(eltype(shape), x, y, w, h)
             if Spatial2D.contains(shape, Pair(u, v))
                 state = rasterfunc(x, y, u, v, state)
