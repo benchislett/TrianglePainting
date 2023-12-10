@@ -36,35 +36,91 @@ function run(N::Int, best_x, target, img)
     savevec_x, best_x
 end
 
-function getloss_gpu!(tris, rs, gs, bs, amounts, losses, target_d, img_d, NTris)
-    tid::Int = threadIdx().x
-    bid::Int = blockIdx().x
-    gid::Int = (bid - 1) * blockDim().x + tid
 
-    i, j = bid, tid
-    w, h = size(target_d)
+# Only returns from lane 0
+function warpreducesum(amt)
+    mask = CUDA.active_mask()
+    amt += CUDA.shfl_down_sync(mask, amt, 16)
+    amt += CUDA.shfl_down_sync(mask, amt, 8)
+    amt += CUDA.shfl_down_sync(mask, amt, 4)
+    amt += CUDA.shfl_down_sync(mask, amt, 2)
+    amt += CUDA.shfl_down_sync(mask, amt, 1)
+    return amt
+end
 
-    u, v = Draw2D.uv(Float32, i, j, w, h)
-    for tri_idx = 1:NTris
-        tri::Triangle{Float32} = tris[tri_idx]
-        if Spatial2D.contains(tri, Pair(u, v))
-            @inbounds CUDA.atomic_add!(pointer(rs, tri_idx), target_d[i, j].r)
-            @inbounds CUDA.atomic_add!(pointer(gs, tri_idx), target_d[i, j].g)
-            @inbounds CUDA.atomic_add!(pointer(bs, tri_idx), target_d[i, j].b)
-            CUDA.atomic_add!(pointer(amounts, tri_idx), UInt32(1))
+function warpbroadcast(val)
+    return CUDA.shfl_sync(CUDA.active_mask(), val, 1)
+end
+
+toxcoord(x, w) = Int(floor(w * x))
+toycoord(x, h) = Int(floor(h * x))
+
+function getloss_gpu!(tris, losses, target_d, img_d, NTris)
+    @inbounds begin
+        tid::Int = threadIdx().x
+        bid::Int = blockIdx().x
+
+        shape = tris[bid]
+
+        minx, miny = Shapes2D.min(shape)
+        maxx, maxy = Shapes2D.max(shape)
+
+        w, h = size(target_d)
+
+        col::RGB{Float32} = zero(RGB{Float32})
+        amt::UInt32 = 0
+
+        xfloor = max(1, toxcoord(minx, w)) - 1
+        xceil = min(w, toxcoord(maxx, w) + 1) - 1
+        for xbase = xfloor:32:xceil
+            x = xbase + tid
+            if x <= w
+                for y in max(1, toycoord(miny, h)):min(h, toycoord(maxy, h) + 1)
+                    u, v = Draw2D.uv(eltype(shape), x, y, w, h)
+                    if Spatial2D.contains(shape, Pair(u, v))
+                        col += target_d[x, y]
+                        amt += 1
+                    end
+                end
+            end
         end
-    end
 
-    for tri_idx = 1:NTris
-        tri::Triangle{Float32} = tris[tri_idx]
-        if Spatial2D.contains(tri, Pair(u, v))
-            col::RGB{Float32} = RGB{Float32}(rs[tri_idx], gs[tri_idx], bs[tri_idx]) / Float32(amounts[tri_idx])
-            lossdiff::Float32 = Draw2D.absdiff(col, target_d[i, j]) - Draw2D.absdiff(img_d[i, j], target_d[i, j])
-            CUDA.atomic_add!(pointer(losses, tri_idx), lossdiff)
+        amtwarp = warpreducesum(amt)
+        colr = warpreducesum(col.r)
+        colg = warpreducesum(col.g)
+        colb = warpreducesum(col.b)
+
+        amt = warpbroadcast(amtwarp)
+        colr = warpbroadcast(colr)
+        colg = warpbroadcast(colg)
+        colb = warpbroadcast(colb)
+
+        col = RGB{Float32}(colr, colg, colb)
+
+        colour::RGB{Float32} = col / Float32(amt)
+
+        loss::Float32 = 0.0f0
+
+        for xbase = xfloor:32:xceil
+            x = xbase + tid
+            if x <= w
+                for y in max(1, toycoord(miny, h)):min(h, toycoord(maxy, h) + 1)
+                    u, v = Draw2D.uv(eltype(shape), x, y, w, h)
+                    if Spatial2D.contains(shape, Pair(u, v))
+                        loss += Draw2D.absdiff(colour, target_d[x, y]) - Draw2D.absdiff(img_d[x, y], target_d[x, y])
+                    end
+                end
+            end
         end
-    end
 
-    return
+        loss = warpreducesum(loss)
+
+        if tid == 1
+            losses[bid] = loss
+        end
+
+        return
+    end
 end
 
 function run_gpu(N::Int, best_x, target, img)
@@ -72,14 +128,10 @@ function run_gpu(N::Int, best_x, target, img)
     target_gpu = cu(target)
     img_gpu = cu(img)
     device_losses = CUDA.zeros(Float32, N)
-    device_rs = CUDA.zeros(Float32, N)
-    device_gs = CUDA.zeros(Float32, N)
-    device_bs = CUDA.zeros(Float32, N)
-    device_sums = CUDA.zeros(UInt32, N)
 
     blobs_arr = map(SVector{6,Float32}, map(vec -> 2 .* vec .- 0.5, curngs))
     device_arr = map(Triangle{Float32}, blobs_arr)
-    CUDA.@sync begin @cuda threads=200 blocks=200 getloss_gpu!(device_arr, device_rs, device_gs, device_bs, device_sums, device_losses, target_gpu, img_gpu, N) end
+    CUDA.@sync begin @cuda threads=32 blocks=N getloss_gpu!(device_arr, device_losses, target_gpu, img_gpu, N) end
     minloss, minidx = findmin(device_losses)
 
     CUDA.@allowscalar blobs_arr[minidx], best_x + minloss
@@ -107,14 +159,10 @@ function refine_gpu(N::Int, savevec, best_x, baseloss, target, img)
     target_gpu = cu(target)
     img_gpu = cu(img)
     device_losses = CUDA.zeros(Float32, N)
-    device_rs = CUDA.zeros(Float32, N)
-    device_gs = CUDA.zeros(Float32, N)
-    device_bs = CUDA.zeros(Float32, N)
-    device_sums = CUDA.zeros(UInt32, N)
 
     blobs_arr = map(SVector{6,Float32}, map(vec -> savevec + (vec .- 0.5f0) .* 0.05f0, curngs))
     device_arr = map(Triangle{Float32}, blobs_arr)
-    CUDA.@sync begin @cuda threads=200 blocks=200 getloss_gpu!(device_arr, device_rs, device_gs, device_bs, device_sums, device_losses, target_gpu, img_gpu, N) end
+    CUDA.@sync begin @cuda threads=32 blocks=N getloss_gpu!(device_arr, device_losses, target_gpu, img_gpu, N) end
     minloss, minidx = findmin(device_losses)
 
     CUDA.@allowscalar blobs_arr[minidx], baseloss + minloss
@@ -230,7 +278,7 @@ function main(N, nsplit)
                     end
                 end
             end
-        end 
+        end
     end
 
     println(imloss(target, img))
