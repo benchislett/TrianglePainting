@@ -19,7 +19,7 @@ function main()
 
     baseloss::Float32 = imloss(target, img)
 
-    N::Int = 100000000
+    N::Int = 10000
 
     function getloss(tri::Triangle{Float32})::Float32
         col::RGB{Float32} = averagecolor(target, tri, RastAlgorithmPointwise())
@@ -35,7 +35,7 @@ function main()
         w, h = size(target_d)
 
         u, v = Draw2D.uv(Float32, i, j, w, h)
-        for tri_idx = startidx:endidx
+        for tri_idx = 1:NTris
             tri::Triangle{Float32} = tris[tri_idx]
             if Spatial2D.contains(tri, Pair(u, v))
                 @inbounds CUDA.atomic_add!(pointer(rs, tri_idx), target_d[i, j].r)
@@ -45,7 +45,7 @@ function main()
             end
         end
 
-        for tri_idx = startidx:endidx
+        for tri_idx = 1:NTris
             tri::Triangle{Float32} = tris[tri_idx]
             if Spatial2D.contains(tri, Pair(u, v))
                 col::RGB{Float32} = RGB{Float32}(rs[tri_idx], gs[tri_idx], bs[tri_idx]) / Float32(amounts[tri_idx])
@@ -65,9 +65,9 @@ function main()
     device_bs = CUDA.zeros(Float32, N)
     device_sums = CUDA.zeros(UInt32, N)
     
-    # host_arr = map(Triangle{Float32}, map(SVector{6,Float32}, map(vec -> 2 .* vec .- 0.5, rngs)))
-    # host_losses = @time map(getloss, host_arr)
-    # host_min = findmin(host_losses)
+    host_arr = map(Triangle{Float32}, map(SVector{6,Float32}, map(vec -> 2 .* vec .- 0.5, rngs)))
+    host_losses = @time map(getloss, host_arr)
+    host_min = findmin(host_losses)
 
     device_arr = CUDA.@sync map(Triangle{Float32}, map(SVector{6,Float32}, map(vec -> 2 .* vec .- 0.5, curngs)))
     @time CUDA.@sync begin @cuda threads=200 blocks=200 getloss_gpu!(device_arr, device_rs, device_gs, device_bs, device_sums, device_losses, target_gpu, img_gpu, N) end
