@@ -112,7 +112,7 @@ function refine_gpu(N::Int, savevec, best_x, baseloss, target, img)
     device_bs = CUDA.zeros(Float32, N)
     device_sums = CUDA.zeros(UInt32, N)
 
-    blobs_arr = map(SVector{6,Float32}, map(vec -> savevec + (vec .- 0.5f0) .* 0.1f0, curngs))
+    blobs_arr = map(SVector{6,Float32}, map(vec -> savevec + (vec .- 0.5f0) .* 0.05f0, curngs))
     device_arr = map(Triangle{Float32}, blobs_arr)
     CUDA.@sync begin @cuda threads=200 blocks=200 getloss_gpu!(device_arr, device_rs, device_gs, device_bs, device_sums, device_losses, target_gpu, img_gpu, N) end
     minloss, minidx = findmin(device_losses)
@@ -131,6 +131,9 @@ function main(N, nsplit)
     f()::Float32 = 2 * rand(Float32) - 0.5
 
     prevloss = imloss(target, img)
+    
+    tris = []
+    cols = []
 
     @time for i = 1:100
         prevloss = imloss(target, img)
@@ -150,7 +153,7 @@ function main(N, nsplit)
         for jj = 1:nsplit
             t = Threads.@spawn begin
                 vectmp, besttmp = run_gpu(Int(floor(N / nsplit)), copy(prevloss), target, img)
-                for i=1:10
+                for z=1:100
                     vectmp, besttmp = refine_gpu(Int(floor(N / nsplit)), vectmp, besttmp, copy(prevloss), target, img)
                 end
                 refine_gpu(Int(floor(N / nsplit)), vectmp, besttmp, copy(prevloss), target, img)
@@ -197,20 +200,51 @@ function main(N, nsplit)
             draw!(img, tri, col)
             draw!(img_big, tri, col)
             frame(anim, plot(img))
+            push!(tris, tri)
+            push!(cols, col)
         end
+
+        colors = zeros(RGB{Float32}, length(tris))
+        quants = zeros(UInt32, length(tris))
+
+        for i = 1:200
+            for j = 1:200
+                u, v = Draw2D.uv(Float32, i, j, 200, 200)
+                for k = length(tris):-1:1
+                    if Spatial2D.contains(tris[k], Pair(u, v))
+                        colors[k] += target[i, j]
+                        quants[k] += 1
+                        break
+                    end
+                end
+            end
+        end
+    
+        for i = 1:200
+            for j = 1:200
+                u, v = Draw2D.uv(Float32, i, j, 200, 200)
+                for k = length(tris):-1:1
+                    if Spatial2D.contains(tris[k], Pair(u, v))
+                        img[i, j] = colors[k] / Float32(quants[k])
+                        break
+                    end
+                end
+            end
+        end 
     end
 
     println(imloss(target, img))
 
     save("output.png", img_big)
+    save("output_orig.png", img)
     save("difference.png", abs.(img - target))
 
     gif(anim, "output.gif")
 
-    img
+    return tris, cols
 end
 
-main(1000000, 10)
+# main(1000000, 10)
 
 # target = float.(load("lisa.png"))
 # img = zeros(RGB{Float32}, 200, 200)

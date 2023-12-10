@@ -11,7 +11,8 @@ export uv, absdiff
 using ..Spatial2D
 using ..Shapes2D
 
-absdiff(r1, r2) = abs(r1.r - r2.r) + abs(r1.g - r2.g) + abs(r1.b - r2.b)
+sqr(x) = x*x
+absdiff(r1, r2) = sqr(r1.r - r2.r) + sqr(r1.g - r2.g) + sqr(r1.b - r2.b)
 
 function uv(::Type{T}, i, j, w, h) where {T<:Real}
     (T(i) - T(0.5)) / T(w), (T(j) - T(0.5)) / T(h)
