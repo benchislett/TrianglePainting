@@ -1,34 +1,53 @@
 module Shapes2D
 
-import Base.eltype
-
 export AbstractShape, AbstractPolygon
-export Polygon
-export Triangle
-
-export getvertex
-export eltype
+export Point, x, y
+export AABB
+export Polygon, Triangle
+export vertices, vertex
 
 using StaticArrays
 
-abstract type AbstractShape end
+"""Point in 2D"""
+const Point = Pair{Float32, Float32}
+"""Return the x coordinate of a 2D point"""
+x(p::Point) = first(p)
+"""Return the y coordinate of a 2D point"""
+y(p::Point) = last(p)
 
+abstract type AbstractShape end
 abstract type AbstractPolygon <: AbstractShape end
 
-struct Polygon{N,T<:AbstractFloat} <: AbstractPolygon
-    vertices::SVector{N,Pair{T,T}}
+"""Polygon in 2D with N vertices"""
+struct Polygon{N} <: AbstractPolygon
+    vertices::SVector{N, Point}
 end
 
-eltype(::Polygon{N,T}) where {N,T} = T
+"""Return the static array of vertices of a Polygon"""
+vertices(p::Polygon) = p.vertices
+"""Return the Point of the i-th vertex of a Polygon"""
+vertex(p::Polygon, i) = getindex(p.vertices, i)
 
-getvertex(p::Polygon, i) = getindex(p.vertices, i)
-min(p::Polygon) = reduce((x, y) -> Pair(Base.min(x.first, y.first), Base.min(x.second, y.second)), p.vertices)
-max(p::Polygon) = reduce((x, y) -> Pair(Base.max(x.first, y.first), Base.max(x.second, y.second)), p.vertices)
+"""Axis-Aligned Bounding Box in 2D"""
+struct AABB <: AbstractShape
+    min::Point
+    max::Point
+end
 
-const Triangle{T} = Polygon{3,T}
+AABB(s::AbstractShape) = AABB(Point(0, 0), Point(1, 1))
+function AABB(p::Polygon)
+    minx = reduce(min, (x(p) for p in p.vertices))
+    miny = reduce(min, (y(x) for p in p.vertices))
+    maxx = reduce(max, (x(p) for p in p.vertices))
+    maxy = reduce(max, (y(x) for p in p.vertices))
+    AABB(Point(minx, miny), Point(maxx, maxy))
+end
 
-Triangle{T}(v1, v2, v3) where {T} = Triangle{T}(SVector{3,Pair{T,T}}(v1, v2, v3))
-Triangle{T}(vertices::SVector{6,T}) where {T} = Triangle{T}(Pair(vertices[1], vertices[2]), Pair(vertices[3], vertices[4]), Pair(vertices[5], vertices[6]))
-Triangle{T}(vertices::MVector{6,T}) where {T} = Triangle{T}(Pair(vertices[1], vertices[2]), Pair(vertices[3], vertices[4]), Pair(vertices[5], vertices[6]))
+"""Triangle in 2D, alias for a 3-vertex Polygon"""
+const Triangle = Polygon{3}
+
+Triangle(v1, v2, v3) = Triangle(SVector{3,Point}(v1, v2, v3))
+Triangle(vertices::SVector{6,Float32}) = Triangle(Point(vertices[1], vertices[2]), Point(vertices[3], vertices[4]), Point(vertices[5], vertices[6]))
+Triangle(vertices::MVector{6,Float32}) = Triangle(Point(vertices[1], vertices[2]), Point(vertices[3], vertices[4]), Point(vertices[5], vertices[6]))
 
 end

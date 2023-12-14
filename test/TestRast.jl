@@ -11,7 +11,7 @@ Random.seed!(1234)
 
 f() = rand() * 2 - 0.5
 v1, v2, v3 = Pair(f(), f()), Pair(f(), f()), Pair(f(), f())
-shape = Triangle{Float32}(v1, v2, v3)
+shape = Triangle(v1, v2, v3)
 shape2 = Triangle{Float64}(v1, v2, v3)
 # count2::Int = 0
 # @btime begin

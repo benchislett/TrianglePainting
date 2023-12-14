@@ -23,7 +23,7 @@ function run(N::Int, best_x, target, img)
     for j = 1:N
         initial = MVector{6,Float32}(view(rngs, j, :))
 
-        tri = Triangle{Float32}(initial)
+        tri = Triangle(initial)
         col = averagecolor(target, tri)
         loss = baseloss + drawloss(target, img, tri, col)
 
@@ -130,7 +130,7 @@ function run_gpu(N::Int, best_x, target, img)
     device_losses = CUDA.zeros(Float32, N)
 
     blobs_arr = map(SVector{6,Float32}, map(vec -> 2 .* vec .- 0.5, curngs))
-    device_arr = map(Triangle{Float32}, blobs_arr)
+    device_arr = map(Triangle, blobs_arr)
     CUDA.@sync begin @cuda threads=32 blocks=N getloss_gpu!(device_arr, device_losses, target_gpu, img_gpu, N) end
     minloss, minidx = findmin(device_losses)
 
@@ -141,7 +141,7 @@ function refine(N::Int, savevec, best, baseloss, target, img)
     for j = 1:N
         initial::MVector{6,Float32} = savevec .+ (randn(Float32, 6) * 0.1)
 
-        tri = Triangle{Float32}(initial)
+        tri = Triangle(initial)
         col = averagecolor(target, tri)
         loss = baseloss + drawloss(target, img, tri, col)
 
@@ -161,7 +161,7 @@ function refine_gpu(N::Int, savevec, best_x, baseloss, target, img)
     device_losses = CUDA.zeros(Float32, N)
 
     blobs_arr = map(SVector{6,Float32}, map(vec -> savevec + (vec .- 0.5f0) .* 0.05f0, curngs))
-    device_arr = map(Triangle{Float32}, blobs_arr)
+    device_arr = map(Triangle, blobs_arr)
     CUDA.@sync begin @cuda threads=32 blocks=N getloss_gpu!(device_arr, device_losses, target_gpu, img_gpu, N) end
     minloss, minidx = findmin(device_losses)
 
@@ -181,10 +181,13 @@ function main(N, nsplit)
     prevloss = imloss(target, img)
     
     tris = []
+    cols_orig = []
     cols = []
+    losses = []
 
     @time for i = 1:100
         prevloss = imloss(target, img)
+        push!(losses, prevloss)
 
         best = copy(prevloss)
         savevec = MVector{6,Float32}([f(), f(), f(), f(), f(), f()])
@@ -241,7 +244,7 @@ function main(N, nsplit)
 
         println(i, " ", best)
 
-        tri = Triangle{Float32}(savevec)
+        tri = Triangle(savevec)
         col = averagecolor(target, tri)
 
         if best < prevloss
@@ -249,39 +252,45 @@ function main(N, nsplit)
             draw!(img_big, tri, col)
             frame(anim, plot(img))
             push!(tris, tri)
+            push!(cols_orig, col)
             push!(cols, col)
-        end
 
-        colors = zeros(RGB{Float32}, length(tris))
-        quants = zeros(UInt32, length(tris))
+            colors = zeros(RGB{Float32}, length(tris))
+            quants = zeros(UInt32, length(tris))
 
-        for i = 1:200
-            for j = 1:200
-                u, v = Draw2D.uv(Float32, i, j, 200, 200)
-                for k = length(tris):-1:1
-                    if Spatial2D.contains(tris[k], Pair(u, v))
-                        colors[k] += target[i, j]
-                        quants[k] += 1
-                        break
+            for i = 1:200
+                for j = 1:200
+                    u, v = Draw2D.uv(Float32, i, j, 200, 200)
+                    for k = length(tris):-1:1
+                        if Spatial2D.contains(tris[k], Pair(u, v))
+                            colors[k] += target[i, j]
+                            quants[k] += 1
+                            break
+                        end
                     end
                 end
             end
-        end
-    
-        for i = 1:200
-            for j = 1:200
-                u, v = Draw2D.uv(Float32, i, j, 200, 200)
-                for k = length(tris):-1:1
-                    if Spatial2D.contains(tris[k], Pair(u, v))
-                        img[i, j] = colors[k] / Float32(quants[k])
-                        break
+
+            for k = length(tris):-1:1
+                cols[k] = colors[k] / Float32(quants[k])
+            end
+        
+            for i = 1:200
+                for j = 1:200
+                    u, v = Draw2D.uv(Float32, i, j, 200, 200)
+                    for k = length(tris):-1:1
+                        if Spatial2D.contains(tris[k], Pair(u, v))
+                            img[i, j] = cols[k]
+                            break
+                        end
                     end
                 end
             end
         end
     end
 
-    println(imloss(target, img))
+    prevloss = imloss(target, img)
+    push!(losses, prevloss)
 
     save("output.png", img_big)
     save("output_orig.png", img)
@@ -289,7 +298,7 @@ function main(N, nsplit)
 
     gif(anim, "output.gif")
 
-    return tris, cols
+    return tris, cols, losses
 end
 
 # main(1000000, 10)
@@ -298,7 +307,7 @@ end
 # img = zeros(RGB{Float32}, 200, 200)
 
 # initial = MVector{6,Float32}([rand(), rand(), rand(), rand(), rand(), rand()])
-# tri = Triangle{Float32}(initial)
+# tri = Triangle(initial)
 # col = averagecolor(target, tri)
 
 # drawloss(target, img, tri, col)

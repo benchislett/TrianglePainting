@@ -39,7 +39,7 @@ function main()
 
     N::Int = 10000
 
-    function getloss(tri::Triangle{Float32})::Float32
+    function getloss(tri::Triangle)::Float32
         col::RGB{Float32} = averagecolor(target, tri, RastAlgorithmPointwise())
         drawloss(target, img, tri, col, RastAlgorithmPointwise())
     end
@@ -116,11 +116,11 @@ function main()
     curngs = cu(rngs)
     device_losses = CUDA.zeros(Float32, N)
     
-    host_arr = map(Triangle{Float32}, map(SVector{6,Float32}, map(vec -> 2 .* vec .- 0.5, rngs)))
+    host_arr = map(Triangle, map(SVector{6,Float32}, map(vec -> 2 .* vec .- 0.5, rngs)))
     host_losses = @time map(getloss, host_arr)
     host_min = findmin(host_losses)
 
-    device_arr = CUDA.@sync map(Triangle{Float32}, map(SVector{6,Float32}, map(vec -> 2 .* vec .- 0.5, curngs)))
+    device_arr = CUDA.@sync map(Triangle, map(SVector{6,Float32}, map(vec -> 2 .* vec .- 0.5, curngs)))
     @time CUDA.@sync begin @cuda threads=32 blocks=N getloss_gpu!(device_arr, device_losses, target_gpu, img_gpu, N) end
     device_min = findmin(device_losses)
 
