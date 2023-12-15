@@ -26,6 +26,11 @@ export RasterAlgorithm, RasterAlgorithmScanline, RasterAlgorithmBounded, RasterA
 include("Draw.jl")
 using .Draw2D
 export draw!
-export imloss, drawloss, averagepixel
+export imloss, drawloss, drawloss_batch, averagepixel, averagepixel_batch
+
+include("GreedySim.jl")
+using .GreedySim
+export PrimitiveSequence, SimState
+export simulate
 
 end # module Paint
