@@ -150,7 +150,7 @@ function rastbot(image, shape::Triangle, state)
         curx2 -= (invslope2 * (1 - yval)) / Float32(h)
         yval = 1
     end
-    while yval <= min(h, v2y(y(v2), h))
+    while yval <= min(h, v2y(y(v2), h))-1
         for xval = max(1, u2x(curx1, w)+1):min(w, u2x(curx2, w))
             state = rasterfunc(xval, yval, image, state)
         end
