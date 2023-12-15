@@ -34,7 +34,7 @@ See also [`RasterAlgorithm`](@ref)
 function draw!(image, shape, colour, algorithm = RasterAlgorithmPointwise())
     state = DrawRasterState(colour)
     rasterize(image, shape, state, algorithm)
-    return
+    return true
 end
 
 """State for drawloss"""

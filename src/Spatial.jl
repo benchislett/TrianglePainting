@@ -34,4 +34,11 @@ function covers(p::Polygon{N}, point::Point) where {N}
     c
 end
 
+"""
+    covers(aabb, point)
+
+Check if a point is contained in a 2D bounding box.
+"""
+covers(aabb::AABB, point::Point) = (x(aabb.min) < x(point) < x(aabb.max)) && (y(aabb.min) < y(point) < y(aabb.max))
+
 end
