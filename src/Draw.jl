@@ -3,7 +3,7 @@ module Draw2D
 using Images
 
 export draw!
-export imloss, drawloss, averagepixel
+export imloss, drawloss, drawloss_batch, averagepixel, averagepixel_batch
 
 using ..Spatial2D
 using ..Shapes2D
@@ -60,8 +60,23 @@ See also [`Loss`](@ref), [`RasterAlgorithm`](@ref)
 """
 function drawloss(target, background, shape, colour, lossstate, algorithm = RasterAlgorithmPointwise())
     state = DrawlossRasterState(target, colour, lossstate, 0.0f0)
-    state = rasterize(shape, background, state, algorithm)
+    state = rasterize(background, shape, state, algorithm)
     state.total
+end
+
+"""
+    drawloss_batch(target, background, shapes, colours, loss, algorithm)
+
+Return a vector of losses given a collection of shapes and colours, calculated in the same fashion as drawloss.
+
+See also [`drawloss`](@ref)
+"""
+function drawloss_batch(target, background, shapes, colours, lossstate, algorithm = RasterAlgorithmPointwise())
+    totals = Vector{Float32}(undef, length(shapes))
+    for i=1:length(shapes)
+        @inbounds totals[i] = drawloss(target, background, shapes[i], colours[i], lossstate, algorithm)
+    end
+    totals
 end
 
 """State for averagepixel"""
@@ -86,6 +101,21 @@ function averagepixel(image, shape, algorithm = RasterAlgorithmPointwise())
     state = PixelAverageRasterState{eltype(image)}(zero(eltype(image)), 0)
     state = rasterize(image, shape, state, algorithm)
     state.colour / state.count
+end
+
+"""
+    averagepixel_batch(target, shapes, algorithm)
+
+Return a vector of average pixels in an image, calculated in the same fashion as averagepixel.
+
+See also [`averagepixel`](@ref)
+"""
+function averagepixel_batch(target, shapes, algorithm = RasterAlgorithmPointwise())
+    pixels = Vector{eltype(target)}(undef, length(shapes))
+    for i=1:length(shapes)
+        @inbounds pixels[i] = averagepixel(target, shapes[i], algorithm)
+    end
+    pixels
 end
 
 """
