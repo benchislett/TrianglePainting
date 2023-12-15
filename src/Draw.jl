@@ -10,8 +10,11 @@ using ..Shapes2D
 using ..Pixel
 using ..Raster2D
 
+# Explicit import to specialize
+import ..Raster2D: rasterfunc
+
 """State for draw!"""
-struct DrawRasterState{Pix}
+struct DrawRasterState{Pix} <: RasterState
     colour::Pix
 end
 
@@ -35,7 +38,7 @@ function draw!(shape, image, colour, algorithm = RasterAlgorithmPointwise())
 end
 
 """State for drawloss"""
-struct DrawlossRasterState{Arr, Pix, LossType <: Loss}
+struct DrawlossRasterState{Arr, Pix, LossType <: Loss} <: RasterState
     target::Arr
     colour::Pix
     loss::LossType
@@ -62,7 +65,7 @@ function drawloss(shape, target, background, colour, lossstate, algorithm = Rast
 end
 
 """State for averagepixel"""
-struct PixelAverageRasterState{Pix}
+struct PixelAverageRasterState{Pix} <: RasterState
     colour::Pix
     count::Int32
 end
@@ -81,7 +84,7 @@ See also [`RasterAlgorithm`](@ref)
 """
 function averagepixel(shape, image, algorithm = RasterAlgorithmPointwise())
     state = PixelAverageRasterState{eltype(image)}(zero(eltype(image)), 0)
-    state = rast(shape, image, state, alg)
+    state = rasterize(shape, image, state, algorithm)
     state.colour / state.count
 end
 

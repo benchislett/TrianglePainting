@@ -11,16 +11,16 @@ export RasterState, rasterfunc, rasterize
 export RasterAlgorithm, RasterAlgorithmScanline, RasterAlgorithmBounded, RasterAlgorithmPointwise
 
 """Convert a UV-space U coordinate to an image-space X coordinate"""
-u2x(u, w) = trunc(Int32, w * u)
+u2x(u, w) = trunc(Int32, w * u) + 1
 
 """Convert a UV-space V coordinate to an image-space Y coordinate"""
-v2y(v, h) = trunc(Int32, h * v)
+v2y(v, h) = trunc(Int32, h * v) + 1
 
 """Convert an image-space X coordinate to a UV-space U coordinate"""
-x2u(x, w) = Float32(x) / Float32(w)
+x2u(x, w) = Float32(x - 1) / Float32(w)
 
 """Convert an image-space Y coordinate to a UV-space V coordinate"""
-y2v(y, h) = Float32(y) / Float32(h)
+y2v(y, h) = Float32(y - 1) / Float32(h)
 
 """Stateful struct to be rasterized over the pixels of a shape by `rasterfunc`"""
 abstract type RasterState end
@@ -57,7 +57,7 @@ For each pixel to be rasterized, advance the state. Return the final state.
 See also [`RasterAlgorithm`](@ref)
 As well as usage mechanisms [`RasterState`](@ref) and [`rasterfunc`](@ref)
 """
-rasterize(shape::AbstractShape, image, state::RasterState, ::RasterAlgorithm) = error("Not implemented")
+rasterize(shape, image, state, ::RasterAlgorithm) = error("Not implemented")
 
 function rasterize(shape, image, state, ::RasterAlgorithmPointwise)
     w, h = size(image)
@@ -94,31 +94,29 @@ http://www.sunshine2k.de/coding/java/TriangleRasterization/TriangleRasterization
 function rasttop(shape::Triangle, image, state)
     w, h = size(image)
 
-    v1x, v1y = vertex(shape, 1)
-    v2x, v2y = vertex(shape, 2)
-    v3x, v3y = vertex(shape, 3)
+    v1, v2, v3 = vertices(shape)
 
-    invslope1::Float32 = (v3x - v1x) / (v3y - v1y)
-    invslope2::Float32 = (v3x - v2x) / (v3y - v2y)
+    invslope1::Float32 = (x(v3) - x(v1)) / (y(v3) - y(v1))
+    invslope2::Float32 = (x(v3) - x(v2)) / (y(v3) - y(v2))
 
     if invslope1 <= invslope2
         invslope1, invslope2 = invslope2, invslope1
     end
 
-    curx1::Float32 = v3x
-    curx2::Float32 = v3x
+    curx1::Float32 = x(v3)
+    curx2::Float32 = x(v3)
 
-    y = v2y(v3y, h)
-    if y > h
-        curx1 -= (invslope1 * (y - h)) / Float32(h)
-        curx2 -= (invslope2 * (y - h)) / Float32(h)
-        y = h
+    yval = v2y(y(v3), h)
+    if yval > h
+        curx1 -= (invslope1 * (yval - h)) / Float32(h)
+        curx2 -= (invslope2 * (yval - h)) / Float32(h)
+        yval = h
     end
-    while y >= max(1, v2y(v1y, h))
-        for x = max(1, u2x(curx1, w)):min(w, u2x(curx2, w))
-            state = rasterfunc(x, y, image, state)
+    while yval >= max(1, v2y(y(v1), h))
+        for xval = max(1, u2x(curx1, w)+1):min(w, u2x(curx2, w))
+            state = rasterfunc(xval, yval, image, state)
         end
-        y = y - 1
+        yval = yval - 1
         curx1 -= invslope1 / Float32(h)
         curx2 -= invslope2 / Float32(h)
     end
@@ -134,31 +132,29 @@ http://www.sunshine2k.de/coding/java/TriangleRasterization/TriangleRasterization
 function rastbot(shape::Triangle, image, state)
     w, h = size(image)
 
-    v1x, v1y = vertex(shape, 1)
-    v2x, v2y = vertex(shape, 2)
-    v3x, v3y = vertex(shape, 3)
+    v1, v2, v3 = vertices(shape)
 
-    invslope1::Float32 = (v2x - v1x) / (v2y - v1y)
-    invslope2::Float32 = (v3x - v1x) / (v3y - v1y)
+    invslope1::Float32 = (x(v2) - x(v1)) / (y(v2) - y(v1))
+    invslope2::Float32 = (x(v3) - x(v1)) / (y(v3) - y(v1))
 
     if invslope1 >= invslope2
         invslope1, invslope2 = invslope2, invslope1
     end
 
-    curx1::Float32 = v1x
-    curx2::Float32 = v1x
+    curx1::Float32 = x(v1)
+    curx2::Float32 = x(v1)
 
-    y = v2y(v1y, h)
-    if y < 1
-        curx1 -= (invslope1 * (1 - y)) / Float32(h)
-        curx2 -= (invslope2 * (1 - y)) / Float32(h)
-        y = 1
+    yval = v2y(y(v1), h)
+    if yval < 1
+        curx1 -= (invslope1 * (1 - yval)) / Float32(h)
+        curx2 -= (invslope2 * (1 - yval)) / Float32(h)
+        yval = 1
     end
-    while y <= min(h, v2y(v2y, h))
-        for x = max(1, u2x(curx1, w)):min(w, u2x(curx2, w))
-            state = rasterfunc(x, y, image, state)
+    while yval <= min(h, v2y(y(v2), h))
+        for xval = max(1, u2x(curx1, w)+1):min(w, u2x(curx2, w))
+            state = rasterfunc(xval, yval, image, state)
         end
-        y = y + 1
+        yval = yval + 1
         curx1 += invslope1 / Float32(h)
         curx2 += invslope2 / Float32(h)
     end

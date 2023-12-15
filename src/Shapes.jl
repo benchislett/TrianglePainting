@@ -37,9 +37,9 @@ end
 AABB(s::AbstractShape) = AABB(Point(0, 0), Point(1, 1))
 function AABB(p::Polygon)
     minx = reduce(min, (x(p) for p in p.vertices))
-    miny = reduce(min, (y(x) for p in p.vertices))
+    miny = reduce(min, (y(p) for p in p.vertices))
     maxx = reduce(max, (x(p) for p in p.vertices))
-    maxy = reduce(max, (y(x) for p in p.vertices))
+    maxy = reduce(max, (y(p) for p in p.vertices))
     AABB(Point(minx, miny), Point(maxx, maxy))
 end
 
