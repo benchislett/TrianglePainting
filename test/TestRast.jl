@@ -3,50 +3,31 @@ using ImageView, Images, Plots, FileIO
 using StaticArrays
 using BenchmarkTools
 using Evolutionary
-using Paint.Shapes2D
-using Paint.Draw2D
+using Paint
 
 import Random
 Random.seed!(1234)
 
-f() = rand() * 2 - 0.5
-v1, v2, v3 = Pair(f(), f()), Pair(f(), f()), Pair(f(), f())
-shape = Triangle(v1, v2, v3)
-shape2 = Triangle{Float64}(v1, v2, v3)
-# count2::Int = 0
-# @btime begin
-#     for i in 1:100
-#         rast(shape2, 200, 200, (i, j, u, v) -> begin
-#             global count2
-#             count2 = count2 + Int(floor(10 * u))
-#         end)
-#     end
-# end
-# println(count2)
-# count::Int = 0
-# @btime begin
-#     for i in 1:100
-#         rast(shape, 200, 200, (i, j, u, v) -> begin
-#             global count
-#             count = count + Int(floor(10 * u))
-#         end)
-#     end
-# end
-# println(count)
+function main()
+    f() = rand() * 2 - 0.5
+    v1, v2, v3 = Point(f(), f()), Point(f(), f()), Point(f(), f())
+    shape = Triangle(v1, v2, v3)
 
-target = float.(load("lisa.png"))
-img = zeros(RGB{Float32}, 200, 200)
-img2 = zeros(RGB{Float64}, 200, 200)
+    target::Array{RGB{Float32}, 2} = float.(load("lisa.png"))
 
-col = averagecolor(target, shape)
+    col = averagepixel(shape, target)
 
-# @btime drawloss($target, $img, $shape2, $col)
-# @btime drawloss($target, $img, $shape, $col)
+    img = zeros(RGB{Float32}, 200, 200)
+    draw!(shape, img, col, RasterAlgorithmPointwise())
+    save("output_pointwise.png", img)
 
-draw!(img, shape, col)
+    img = zeros(RGB{Float32}, 200, 200)
+    draw!(shape, img, col, RasterAlgorithmBounded())
+    save("output_bounded.png", img)
 
-col2 = averagecolor(target, shape2)
-draw!(img2, shape2, col2)
+    img = zeros(RGB{Float32}, 200, 200)
+    draw!(shape, img, col, RasterAlgorithmScanline())
+    save("output_scanline.png", img)
+end
 
-save("output.png", img)
-save("output2.png", img2)
+main()
