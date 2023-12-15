@@ -20,11 +20,11 @@ Overlays an alpha-transparent pixel atop an alpha-transparent background pixel.
 Applies the over-compositing algorithm to the source pixel "over" the background.
 """
 function over(source::RGBA{Float32}, background::RGBA{Float32})
-    alpha_new = source.a + background.a * (1.0f0 - source.a)
+    alpha_new = source.alpha + background.alpha * (1.0f0 - source.alpha)
     
-    pixel_r = (source.r * source.a + background.a * background.r * (1.0f0 - source.a)) / alpha_new;
-    pixel_g = (source.g * source.a + background.a * background.g * (1.0f0 - source.a)) / alpha_new;
-    pixel_b = (source.b * source.a + background.a * background.b * (1.0f0 - source.a)) / alpha_new;
+    pixel_r = (source.r * source.alpha + background.alpha * background.r * (1.0f0 - source.alpha)) / alpha_new;
+    pixel_g = (source.g * source.alpha + background.alpha * background.g * (1.0f0 - source.alpha)) / alpha_new;
+    pixel_b = (source.b * source.alpha + background.alpha * background.b * (1.0f0 - source.alpha)) / alpha_new;
 
     RGBA{Float32}(pixel_r, pixel_g, pixel_b, alpha_new)
 end

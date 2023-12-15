@@ -49,7 +49,7 @@ struct RasterAlgorithmBounded <: RasterAlgorithm end
 struct RasterAlgorithmPointwise <: RasterAlgorithm end
 
 """
-    rasterize(shape, image, state, algorithm)
+    rasterize(image, shape, state, algorithm)
 
 Rasterize the shape over the image.
 For each pixel to be rasterized, advance the state. Return the final state.
@@ -57,9 +57,9 @@ For each pixel to be rasterized, advance the state. Return the final state.
 See also [`RasterAlgorithm`](@ref)
 As well as usage mechanisms [`RasterState`](@ref) and [`rasterfunc`](@ref)
 """
-rasterize(shape, image, state, ::RasterAlgorithm) = error("Not implemented")
+rasterize(image, shape, state, ::RasterAlgorithm) = error("Not implemented")
 
-function rasterize(shape, image, state, ::RasterAlgorithmPointwise)
+function rasterize(image, shape, state, ::RasterAlgorithmPointwise)
     w, h = size(image)
 
     for y = 1:h
@@ -72,7 +72,7 @@ function rasterize(shape, image, state, ::RasterAlgorithmPointwise)
     state
 end
 
-function rasterize(shape, image, state, ::RasterAlgorithmBounded)
+function rasterize(image, shape, state, ::RasterAlgorithmBounded)
     bbox = AABB(shape)
     w, h = size(image)
 
@@ -91,7 +91,7 @@ Rasterize the top half of a triangle
 Ported from:
 http://www.sunshine2k.de/coding/java/TriangleRasterization/TriangleRasterization.html
 """
-function rasttop(shape::Triangle, image, state)
+function rasttop(image, shape::Triangle, state)
     w, h = size(image)
 
     v1, v2, v3 = vertices(shape)
@@ -129,7 +129,7 @@ Rasterize the bottom half of a triangle
 Ported from:
 http://www.sunshine2k.de/coding/java/TriangleRasterization/TriangleRasterization.html
 """
-function rastbot(shape::Triangle, image, state)
+function rastbot(image, shape::Triangle, state)
     w, h = size(image)
 
     v1, v2, v3 = vertices(shape)
@@ -162,32 +162,32 @@ function rastbot(shape::Triangle, image, state)
     state
 end
 
-function rasterize(tri::Triangle, image, state, ::RasterAlgorithmScanline)
+function rasterize(image, tri::Triangle, state, ::RasterAlgorithmScanline)
     v1, v2, v3 = vertices(tri)
 
     # sort vertices in ascending order
-    if v1.second >= v2.second
+    if y(v1) >= y(v2)
         v1, v2 = v2, v1
     end
 
-    if v1.second >= v3.second
+    if y(v1) >= y(v3)
         v1, v3 = v3, v1
     end
 
-    if v2.second >= v3.second
+    if y(v2) >= y(v3)
         v2, v3 = v3, v2
     end
 
     # Save work if the triangle is already flat
-    if v2.second == v3.second
-        state = rastbot(Triangle(v1, v2, v3), image, state)
-    elseif v1.second == v2.second
-        state = rasttop(Triangle(v1, v2, v3), image, state)
+    if y(v2) == y(v3)
+        state = rastbot(image, Triangle(v1, v2, v3), state)
+    elseif y(v1) == y(v2)
+        state = rasttop(image, Triangle(v1, v2, v3), state)
     else
-        x4 = v1.first + ((v2.second - v1.second) / (v3.second - v1.second)) * (v3.first - v1.first)
-        v4 = Point(x4, v2.second)
-        state = rastbot(Triangle(v1, v2, v4), image, state)
-        state = rasttop(Triangle(v2, v4, v3), image, state)
+        x4 = x(v1) + ((y(v2) - y(v1)) / (y(v3) - y(v1))) * (x(v3) - x(v1))
+        v4 = Point(x4, y(v2))
+        state = rastbot(image, Triangle(v1, v2, v4), state)
+        state = rasttop(image, Triangle(v2, v4, v3), state)
     end
     state
 end

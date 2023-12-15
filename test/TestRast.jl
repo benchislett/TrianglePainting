@@ -5,29 +5,28 @@ using BenchmarkTools
 using Evolutionary
 using Paint
 
-import Random
-Random.seed!(1234)
+function shape()
+    v1, v2, v3 = Point(0.25, 0.1), Point(0.55, 0.75), Point(0.65, 0.35)
+    shape = Triangle(v1, v2, v3)
+end
+
+function draw_and_save(colour, algorithm, testname)
+    image = ones(typeof(colour), 200, 200)
+    draw!(image, shape(), colour, algorithm)
+    save("output/raster_tests/" * testname * ".png", image)
+    return true
+end
 
 function main()
-    f() = rand() * 2 - 0.5
-    v1, v2, v3 = Point(f(), f()), Point(f(), f()), Point(f(), f())
-    shape = Triangle(v1, v2, v3)
+    opaque_colour = RGB{Float32}(0.25, 0.25, 0.55)
+    draw_and_save(opaque_colour, RasterAlgorithmPointwise(), "opaque_pointwise")
+    draw_and_save(opaque_colour, RasterAlgorithmBounded(), "opaque_bounded")
+    draw_and_save(opaque_colour, RasterAlgorithmScanline(), "opaque_scanline")
 
-    target::Array{RGB{Float32}, 2} = float.(load("lisa.png"))
-
-    col = averagepixel(shape, target)
-
-    img = zeros(RGB{Float32}, 200, 200)
-    draw!(shape, img, col, RasterAlgorithmPointwise())
-    save("output_pointwise.png", img)
-
-    img = zeros(RGB{Float32}, 200, 200)
-    draw!(shape, img, col, RasterAlgorithmBounded())
-    save("output_bounded.png", img)
-
-    img = zeros(RGB{Float32}, 200, 200)
-    draw!(shape, img, col, RasterAlgorithmScanline())
-    save("output_scanline.png", img)
+    transparent_colour = RGBA{Float32}(0.25, 0.25, 0.55, 0.5)
+    draw_and_save(transparent_colour, RasterAlgorithmPointwise(), "transparent_pointwise")
+    draw_and_save(transparent_colour, RasterAlgorithmBounded(), "transparent_bounded")
+    draw_and_save(transparent_colour, RasterAlgorithmScanline(), "transparent_scanline")
 end
 
 main()

@@ -25,15 +25,15 @@ function rasterfunc(i, j, image, state::DrawRasterState{Pix}) where Pix
 end
 
 """
-    draw!(shape, image, colour, algorithm)
+    draw!(image, shape, colour, algorithm)
 
 Draw a shape onto an image, using the given colour, according to the given rasterization algorithm.
 
 See also [`RasterAlgorithm`](@ref)
 """
-function draw!(shape, image, colour, algorithm = RasterAlgorithmPointwise())
+function draw!(image, shape, colour, algorithm = RasterAlgorithmPointwise())
     state = DrawRasterState(colour)
-    rasterize(shape, image, state, algorithm)
+    rasterize(image, shape, state, algorithm)
     return
 end
 
@@ -52,13 +52,13 @@ function rasterfunc(i, j, image, state::DrawlossRasterState{Arr, Pix, LossType})
 end
 
 """
-    drawloss(shape, target, background, colour, loss, algorithm)
+    drawloss(target, background, shape, colour, loss, algorithm)
 
-Return the total loss if a shape were drawn an image, using the given colour, according to the given rasterization algorithm.
+Return the total loss if a shape were drawn on an image, using the given colour, according to the given rasterization algorithm.
 
 See also [`Loss`](@ref), [`RasterAlgorithm`](@ref)
 """
-function drawloss(shape, target, background, colour, lossstate, algorithm = RasterAlgorithmPointwise())
+function drawloss(target, background, shape, colour, lossstate, algorithm = RasterAlgorithmPointwise())
     state = DrawlossRasterState(target, colour, lossstate, 0.0f0)
     state = rasterize(shape, background, state, algorithm)
     state.total
@@ -76,15 +76,15 @@ function rasterfunc(i, j, image, state::PixelAverageRasterState{Pix}) where Pix
 end
 
 """
-    averagepixel(shape, image, algorithm)
+    averagepixel(image, shape, algorithm)
 
 Return the average pixel value of pixels in an image which are contained in a shape.
 
 See also [`RasterAlgorithm`](@ref)
 """
-function averagepixel(shape, image, algorithm = RasterAlgorithmPointwise())
+function averagepixel(image, shape, algorithm = RasterAlgorithmPointwise())
     state = PixelAverageRasterState{eltype(image)}(zero(eltype(image)), 0)
-    state = rasterize(shape, image, state, algorithm)
+    state = rasterize(image, shape, state, algorithm)
     state.colour / state.count
 end
 
