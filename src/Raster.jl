@@ -146,8 +146,8 @@ function rastbot(image, shape::Triangle, state)
 
     yval = v2y(y(v1), h)
     if yval < 1
-        curx1 -= (invslope1 * (1 - yval)) / Float32(h)
-        curx2 -= (invslope2 * (1 - yval)) / Float32(h)
+        curx1 += (invslope1 * (1 - yval)) / Float32(h)
+        curx2 += (invslope2 * (1 - yval)) / Float32(h)
         yval = 1
     end
     while yval <= min(h, v2y(y(v2), h))-1
