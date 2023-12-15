@@ -29,6 +29,8 @@ function over(source::RGBA{Float32}, background::RGBA{Float32})
     RGBA{Float32}(pixel_r, pixel_g, pixel_b, alpha_new)
 end
 
+over(source::RGBA{Float32}, background::RGB{Float32}) = over(source, RGBA{Float32}(background))
+
 """
 Loss type to use when comparing pixels.
 
@@ -56,6 +58,18 @@ loss(source::RGB{Float32}, target::RGB{Float32}, ::SELoss)::Float32 = abs2(sourc
 function loss(source::RGB{Float32}, target::RGB{Float32}, ::AELoss)::Float32
     deltapixel = abs.(source - target)
     deltapixel.r + deltapixel.g + deltapixel.b
+end
+
+function loss(source::RGB{Float32}, target::RGBA{Float32}, losstype::LossT) where LossT <: Loss
+    loss(source, RGB{Float32}(target), losstype)
+end
+
+function loss(source::RGBA{Float32}, target::RGBA{Float32}, losstype::LossT) where LossT <: Loss
+    loss(RGB{Float32}(source), RGB{Float32}(target), losstype)
+end
+
+function loss(source::RGBA{Float32}, target::RGB{Float32}, losstype::LossT) where LossT <: Loss
+    loss(RGB{Float32}(source), target, losstype)
 end
 
 end
