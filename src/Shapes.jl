@@ -42,12 +42,16 @@ function AABB(p::Polygon)
     maxy = reduce(max, (y(p) for p in p.vertices))
     AABB(Point(minx, miny), Point(maxx, maxy))
 end
+AABB(points::SVector{4,Float32}) = @inbounds AABB(Point(points[1], points[2]), Point(points[3], points[4]))
+AABB(points::MVector{4,Float32}) = @inbounds AABB(Point(points[1], points[2]), Point(points[3], points[4]))
+AABB(points::Vector{Float32}) = @inbounds AABB(Point(points[1], points[2]), Point(points[3], points[4]))
 
 """Triangle in 2D, alias for a 3-vertex Polygon"""
 const Triangle = Polygon{3}
 
 Triangle(v1, v2, v3) = Triangle(SVector{3,Point}(v1, v2, v3))
-Triangle(vertices::SVector{6,Float32}) = Triangle(Point(vertices[1], vertices[2]), Point(vertices[3], vertices[4]), Point(vertices[5], vertices[6]))
-Triangle(vertices::MVector{6,Float32}) = Triangle(Point(vertices[1], vertices[2]), Point(vertices[3], vertices[4]), Point(vertices[5], vertices[6]))
+Triangle(vertices::SVector{6,Float32}) = @inbounds Triangle(Point(vertices[1], vertices[2]), Point(vertices[3], vertices[4]), Point(vertices[5], vertices[6]))
+Triangle(vertices::MVector{6,Float32}) = @inbounds Triangle(Point(vertices[1], vertices[2]), Point(vertices[3], vertices[4]), Point(vertices[5], vertices[6]))
+Triangle(vertices::Vector{Float32}) = @inbounds Triangle(Point(vertices[1], vertices[2]), Point(vertices[3], vertices[4]), Point(vertices[5], vertices[6]))
 
 end
