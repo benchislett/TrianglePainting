@@ -28,6 +28,10 @@ using .Draw2D
 export draw!
 export imloss, drawloss, drawloss_batch, averagepixel, averagepixel_batch
 
+include("Mutate.jl")
+using .Mutate
+export numvars, mutate, mutate_batch
+
 include("GreedySim.jl")
 using .GreedySim
 export PrimitiveSequence, SimState

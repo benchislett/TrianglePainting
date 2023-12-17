@@ -73,7 +73,7 @@ See also [`drawloss`](@ref)
 """
 function drawloss_batch(target, background, shapes, colours, lossstate, algorithm = RasterAlgorithmPointwise())
     totals = Vector{Float32}(undef, length(shapes))
-    for i=1:length(shapes)
+    Threads.@threads for i=1:length(shapes)
         @inbounds totals[i] = drawloss(target, background, shapes[i], colours[i], lossstate, algorithm)
     end
     totals
@@ -112,7 +112,7 @@ See also [`averagepixel`](@ref)
 """
 function averagepixel_batch(target, shapes, algorithm = RasterAlgorithmPointwise())
     pixels = Vector{eltype(target)}(undef, length(shapes))
-    for i=1:length(shapes)
+    Threads.@threads for i=1:length(shapes)
         @inbounds pixels[i] = averagepixel(target, shapes[i], algorithm)
     end
     pixels
