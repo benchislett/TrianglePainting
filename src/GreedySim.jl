@@ -21,7 +21,7 @@ mutable struct SimState{Shape, Pixel}
     best::Float32
 end
 
-function simulate(target, nprims, nbatch, losstype = SELoss())
+function simulate(target, nprims, nbatch, nepochs, nrefinement ; losstype = SELoss(), verbose=true)
     w, h = size(target)
     initial = zero(target) .+ one(eltype(target))
     state = SimState{Triangle, eltype(target)}([], [], [], initial, Inf32)
@@ -33,11 +33,9 @@ function simulate(target, nprims, nbatch, losstype = SELoss())
         colours = averagepixel_batch(target, tris, RasterAlgorithmScanline())
         losses = drawloss_batch(target, state.current, tris, colours, losstype, RasterAlgorithmScanline())
 
-        minloss = 0.0f0
-        minidx = 0
-        for roundidx = 1:5
-            for k=1:50
-                rngs = randn(Float32, nbatch * 100) * 0.1f0
+        for roundidx = 1:nepochs
+            for k=1:nrefinement
+                rngs = randn(Float32, nbatch, 6) * 0.05f0
                 newtris = mutate_batch(tris, rngs)
                 newcolours = averagepixel_batch(target, newtris, RasterAlgorithmScanline())
                 newlosses = drawloss_batch(target, state.current, newtris, newcolours, losstype, RasterAlgorithmScanline())
@@ -50,11 +48,15 @@ function simulate(target, nprims, nbatch, losstype = SELoss())
                 end
             end
 
-            minloss, minidx = findmin(losses)
-            fill!(tris, tris[minidx])
-            fill!(colours, colours[minidx])
-            fill!(losses, minloss)
+            idxs = sortperm(losses)
+            Threads.@threads for i=0:Int(floor(nbatch/10))-1
+                fill!(view(tris, 10*i+1:10*(i+1)), tris[idxs[i+1]])
+                fill!(view(colours, 10*i+1:10*(i+1)), colours[idxs[i+1]])
+                fill!(view(losses, 10*i+1:10*(i+1)), losses[idxs[i+1]])
+            end
         end
+
+        minloss, minidx = findmin(losses)
 
         if minloss < 0 # normalized losses are negative if they reduce total loss
 
@@ -93,7 +95,9 @@ function simulate(target, nprims, nbatch, losstype = SELoss())
 
             state.best = imloss(target, state.current, losstype)
 
-            println("Added primitive $primidx with total loss ", state.best, " with difference ", prev - state.best)
+            if verbose
+                println("Added primitive $primidx with total loss ", state.best, " with difference ", prev - state.best)
+            end
         end
 
         state.best = imloss(target, state.current, losstype)
