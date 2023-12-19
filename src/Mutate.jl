@@ -41,7 +41,7 @@ function mutate_batch(shapes::Vector{T}, nums) where T <: AbstractShape
     newshapes = Vector{T}(undef, length(shapes))
     Threads.@threads for i = 1:length(shapes)
         offset = (i - 1) * numvars(T) + 1
-        @inbounds newshapes[i] = mutate(shapes[i], nums[offset:offset + numvars(T)])
+        @inbounds newshapes[i] = mutate(shapes[i], nums[offset:offset + numvars(T) - 1])
     end
     newshapes
 end
