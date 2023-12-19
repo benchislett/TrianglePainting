@@ -3,6 +3,8 @@ module GreedySim
 using StaticArrays
 using Images
 
+using Evolutionary
+
 using ..Shapes2D
 using ..Raster2D
 using ..Spatial2D
@@ -56,11 +58,38 @@ function simulate(target, nprims, nbatch, losstype = SELoss())
             fill!(losses, minloss)
         end
 
-        if minloss < 0 # normalized losses are negative if they reduce total loss
+        minloss, minidx = findmin(losses)
+        mintri = tris[minidx]
+        mincol = colours[minidx]
 
-            push!(state.shapes, tris[minidx])
-            push!(state.original_colours, copy(colours[minidx]))
-            push!(state.current_colours, copy(colours[minidx]))
+        """
+        function sample_loss(xs)
+            tri = Triangle(xs)
+            col = averagepixel(target, tri, RasterAlgorithmScanline())
+            loss = drawloss(target, state.current, tri, col, losstype, RasterAlgorithmScanline())
+        end
+
+        init_sample = [rand(Float32, 6) for i=1:100]
+        optres = Evolutionary.optimize(
+            sample_loss,
+            Evolutionary.BoxConstraints([0.0f0 for i = 1:6], [1.0f0 for i=1:6]),
+            init_sample,
+            Evolutionary.CMAES(mu=100, metrics=Vector{Evolutionary.ConvergenceMetric}([])),
+            Evolutionary.Options(iterations=1000)
+        )
+        println(optres)
+        minloss = optres.minimum
+        mintri = Triangle(SVector{6, Float32}(optres.minimizer))
+        mincol = averagepixel(target, mintri, RasterAlgorithmScanline())
+        # minloss, minidx = findmin(losses)
+        # mintri = tris[minidx]
+        # mincol = colours[minidx]
+        """
+
+        if minloss < 0 # normalized losses are negative if they reduce total loss
+            push!(state.shapes, mintri)
+            push!(state.original_colours, copy(mincol))
+            push!(state.current_colours, copy(mincol))
 
             # recolor
             recolors = zeros(RGB{Float32}, length(state.shapes))
