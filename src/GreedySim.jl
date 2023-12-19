@@ -23,7 +23,7 @@ mutable struct SimState{Shape, Pixel}
     best::Float32
 end
 
-function simulate(target, nprims, nbatch, losstype = SELoss())
+function simulate(target, nprims, nbatch, nepoch, nrefine; losstype = SELoss(), verbose=true)
     w, h = size(target)
     initial = zero(target) .+ one(eltype(target))
     state = SimState{Triangle, eltype(target)}([], [], [], initial, Inf32)
@@ -37,8 +37,8 @@ function simulate(target, nprims, nbatch, losstype = SELoss())
 
         minloss = 0.0f0
         minidx = 0
-        for roundidx = 1:5
-            for k=1:50
+        for roundidx = 1:nepoch
+            for k=1:nrefine
                 rngs = randn(Float32, nbatch * 100) * 0.1f0
                 newtris = mutate_batch(tris, rngs)
                 newcolours = averagepixel_batch(target, newtris, RasterAlgorithmScanline())
@@ -122,7 +122,9 @@ function simulate(target, nprims, nbatch, losstype = SELoss())
 
             state.best = imloss(target, state.current, losstype)
 
-            println("Added primitive $primidx with total loss ", state.best, " with difference ", prev - state.best)
+            if verbose
+                println("Added primitive $primidx with total loss ", state.best, " with difference ", prev - state.best)
+            end
         end
 
         state.best = imloss(target, state.current, losstype)
