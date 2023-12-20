@@ -35,6 +35,6 @@ export numvars, mutate, mutate_batch
 include("GreedySim.jl")
 using .GreedySim
 export PrimitiveSequence, SimState
-export simulate
+export simulate, commit!, redraw!, genbackground, simulate_iter_ga
 
 end # module Paint
