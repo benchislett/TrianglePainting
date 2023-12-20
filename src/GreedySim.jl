@@ -13,9 +13,10 @@ using ..Pixel
 using ..Mutate
 
 export PrimitiveSequence, SimState
-export simulate, commit
+export simulate, commit!, redraw!, genbackground
 
 mutable struct SimState{Shape, Pixel}
+    background::RGB{Float32}
     shapes::Vector{Shape}
     current_colours::Vector{Pixel}
     original_colours::Vector{Pixel}
@@ -23,12 +24,8 @@ mutable struct SimState{Shape, Pixel}
     best::Float32
 end
 
-function genbackground(target)
-    zero(target) .+ averagepixel(target)
-end
-
 function redraw!(state, target)
-    initial = genbackground(target)
+    initial = zero(target) .+ state.background
     state.current = initial
     for k in eachindex(state.shapes)
         draw!(state.current, state.shapes[k], state.current_colours[k], RasterAlgorithmScanline())
@@ -41,7 +38,7 @@ function commit!(state, target, shape, colour ; losstype, applyrecolor=true)
     push!(state.current_colours, copy(colour))
 
     if applyrecolor
-        state.current_colours = opaquerecolor(target, state.shapes, RasterAlgorithmScanline())
+        state.current_colours, state.background = opaquerecolor(target, state.shapes, RasterAlgorithmScanline())
         redraw!(state, target)
     else
         draw!(state.current, shape, colour, RasterAlgorithmScanline())
@@ -50,42 +47,56 @@ function commit!(state, target, shape, colour ; losstype, applyrecolor=true)
     state.best = imloss(target, state.current, losstype)
 end
 
-function simulate(target, nprims, nbatch, nepochs, nrefinement ; losstype = SELoss(), verbose=true)
-    state = SimState{Triangle, eltype(target)}([], [], [], genbackground(target), Inf32)
-    state.best = imloss(target, state.current, losstype)
+function simulate_iter_ga(state, target, nbatch, nepochs, nrefinement ; losstype)
+    rngs = 2.0f0 .* rand(Float32, nbatch, 6) .- 0.5f0 # todo generalize random initialization
+    tris = [Triangle(SVector{6, Float32}(slice)) for slice in eachslice(rngs, dims=1)]
+    colours = averagepixel_batch(target, tris, RasterAlgorithmScanline())
+    losses = drawloss_batch(target, state.current, tris, colours, losstype, RasterAlgorithmScanline())
 
-    for primidx = 1:nprims
-        rngs = 2.0f0 .* rand(Float32, nbatch, 6) .- 0.5f0 # todo generalize random initialization
-        tris = [Triangle(SVector{6, Float32}(slice)) for slice in eachslice(rngs, dims=1)]
-        colours = averagepixel_batch(target, tris, RasterAlgorithmScanline())
-        losses = drawloss_batch(target, state.current, tris, colours, losstype, RasterAlgorithmScanline())
-
-        for roundidx = 1:nepochs
-            for k=1:nrefinement
-                rngs = randn(Float32, nbatch, 6) * 0.05f0
-                newtris = mutate_batch(tris, rngs)
-                newcolours = averagepixel_batch(target, newtris, RasterAlgorithmScanline())
-                newlosses = drawloss_batch(target, state.current, newtris, newcolours, losstype, RasterAlgorithmScanline())
-                Threads.@threads for i=1:nbatch
-                    if newlosses[i] < losses[i]
-                        losses[i] = newlosses[i]
-                        tris[i] = newtris[i]
-                        colours[i] = newcolours[i]
-                    end
+    for roundidx = 1:nepochs
+        for k=1:nrefinement
+            rngs = randn(Float32, nbatch, 6) * 0.05f0
+            newtris = mutate_batch(tris, rngs)
+            newcolours = averagepixel_batch(target, newtris, RasterAlgorithmScanline())
+            newlosses = drawloss_batch(target, state.current, newtris, newcolours, losstype, RasterAlgorithmScanline())
+            for i=1:nbatch
+                if newlosses[i] < losses[i]
+                    losses[i] = newlosses[i]
+                    tris[i] = newtris[i]
+                    colours[i] = newcolours[i]
                 end
-            end
-
-            idxs = sortperm(losses)
-            Threads.@threads for i=0:Int(floor(nbatch/10))-1
-                fill!(view(tris, 10*i+1:10*(i+1)), tris[idxs[i+1]])
-                fill!(view(colours, 10*i+1:10*(i+1)), colours[idxs[i+1]])
-                fill!(view(losses, 10*i+1:10*(i+1)), losses[idxs[i+1]])
             end
         end
 
-        minloss, minidx = findmin(losses)
-        mintri = tris[minidx]
-        mincol = colours[minidx]
+        idxs = sortperm(losses)
+        upper = Int(floor(nbatch/10))
+        toptris = copy(tris[idxs[1:upper]])
+        topcols = copy(colours[idxs[1:upper]])
+        toploss = copy(losses[idxs[1:upper]])
+
+        Threads.@threads for i=0:upper-1
+            for k=1:10
+                tris[10 * i + k] = toptris[i + 1]
+                colours[10 * i + k] = topcols[i + 1]
+                losses[10 * i + k] = toploss[i + 1]
+            end
+        end
+    end
+
+    minloss, minidx = findmin(losses)
+    mintri = tris[minidx]
+    mincol = colours[minidx]
+
+    minloss, mintri, mincol
+end
+
+function simulate(target, nprims, nbatch, nepochs, nrefinement ; losstype = SELoss(), verbose=true)
+    state = SimState{Triangle, eltype(target)}(averagepixel(target), [], [], [], zero(target), Inf32)
+    redraw!(state, target)
+    state.best = imloss(target, state.current, losstype)
+
+    for primidx = 1:nprims
+        minloss, mintri, mincol = simulate_iter_ga(state, target, nbatch, nepochs, nrefinement, losstype=losstype)
 
         """
         function sample_loss(xs)
@@ -119,8 +130,6 @@ function simulate(target, nprims, nbatch, nepochs, nrefinement ; losstype = SELo
                 println("Added primitive $primidx with total loss ", state.best, " with difference ", prev - state.best)
             end
         end
-
-        state.best = imloss(target, state.current, losstype)
     end
 
     state

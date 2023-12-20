@@ -161,7 +161,18 @@ function opaquerecolor(target, shapes, algorithm)
         colours[k] = state.colour / Float32(state.count)
     end
 
-    colours
+    bg = zero(RGB{Float32})
+    count = 0
+    for i = 1:size(target)[1]
+        for j = 1:size(target)[2]
+            if !visited[i, j]
+                bg += target[i, j]
+                count += 1
+            end
+        end
+    end
+
+    colours, bg / Float32(max(count, 1))
 end
 
 """
