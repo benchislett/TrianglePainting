@@ -26,7 +26,7 @@ export RasterAlgorithm, RasterAlgorithmScanline, RasterAlgorithmBounded, RasterA
 include("Draw.jl")
 using .Draw2D
 export draw!
-export imloss, drawloss, drawloss_batch, averagepixel, averagepixel_batch
+export imloss, drawloss, drawloss_batch, averagepixel, averagepixel_batch, opaquerecolor
 
 include("Mutate.jl")
 using .Mutate

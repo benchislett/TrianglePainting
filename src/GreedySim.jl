@@ -13,7 +13,7 @@ using ..Pixel
 using ..Mutate
 
 export PrimitiveSequence, SimState
-export simulate
+export simulate, commit
 
 mutable struct SimState{Shape, Pixel}
     shapes::Vector{Shape}
@@ -23,10 +23,35 @@ mutable struct SimState{Shape, Pixel}
     best::Float32
 end
 
+function genbackground(target)
+    zero(target) .+ averagepixel(target)
+end
+
+function redraw!(state, target)
+    initial = genbackground(target)
+    state.current = initial
+    for k in eachindex(state.shapes)
+        draw!(state.current, state.shapes[k], state.current_colours[k], RasterAlgorithmScanline())
+    end
+end
+
+function commit!(state, target, shape, colour ; losstype, applyrecolor=true)
+    push!(state.shapes, shape)
+    push!(state.original_colours, copy(colour))
+    push!(state.current_colours, copy(colour))
+
+    if applyrecolor
+        state.current_colours = opaquerecolor(target, state.shapes, RasterAlgorithmScanline())
+        redraw!(state, target)
+    else
+        draw!(state.current, shape, colour, RasterAlgorithmScanline())
+    end
+
+    state.best = imloss(target, state.current, losstype)
+end
+
 function simulate(target, nprims, nbatch, nepochs, nrefinement ; losstype = SELoss(), verbose=true)
-    w, h = size(target)
-    initial = zero(target) .+ one(eltype(target))
-    state = SimState{Triangle, eltype(target)}([], [], [], initial, Inf32)
+    state = SimState{Triangle, eltype(target)}([], [], [], genbackground(target), Inf32)
     state.best = imloss(target, state.current, losstype)
 
     for primidx = 1:nprims
@@ -87,40 +112,8 @@ function simulate(target, nprims, nbatch, nepochs, nrefinement ; losstype = SELo
         """
 
         if minloss < 0 # normalized losses are negative if they reduce total loss
-            push!(state.shapes, mintri)
-            push!(state.original_colours, copy(mincol))
-            push!(state.current_colours, copy(mincol))
-
-            # recolor
-            recolors = zeros(RGB{Float32}, length(state.shapes))
-            quants = zeros(UInt32, length(state.shapes))
-
-            for i = 1:w
-                for j = 1:h
-                    pt = Point(x2u(i, w), y2v(j, h))
-                    for k = length(state.shapes):-1:1
-                        if covers(state.shapes[k], pt)
-                            recolors[k] += target[i, j]
-                            quants[k] += 1
-                            break
-                        end
-                    end
-                end
-            end
-
-            for k = length(state.shapes):-1:1
-                state.current_colours[k] = recolors[k] / Float32(quants[k])
-            end
-
-            initial = zero(target) .+ one(eltype(target))
-            state.current = initial
-            for k=1:length(state.shapes)
-                draw!(state.current, state.shapes[k], state.current_colours[k], RasterAlgorithmScanline())
-            end
-
             prev = state.best
-
-            state.best = imloss(target, state.current, losstype)
+            commit!(state, target, mintri, mincol, losstype=losstype)
 
             if verbose
                 println("Added primitive $primidx with total loss ", state.best, " with difference ", prev - state.best)

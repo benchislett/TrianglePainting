@@ -3,7 +3,7 @@ module Draw2D
 using Images
 
 export draw!
-export imloss, drawloss, drawloss_batch, averagepixel, averagepixel_batch
+export imloss, drawloss, drawloss_batch, averagepixel, averagepixel_batch, opaquerecolor
 
 using ..Spatial2D
 using ..Shapes2D
@@ -104,6 +104,15 @@ function averagepixel(image, shape, algorithm = RasterAlgorithmPointwise())
 end
 
 """
+    averagepixel(image)
+
+Return the average pixel value of all pixels in an image.
+"""
+function averagepixel(image)
+    sum(image) / prod(size(image))
+end
+
+"""
     averagepixel_batch(target, shapes, algorithm)
 
 Return a vector of average pixels in an image, calculated in the same fashion as averagepixel.
@@ -112,10 +121,47 @@ See also [`averagepixel`](@ref)
 """
 function averagepixel_batch(target, shapes, algorithm = RasterAlgorithmPointwise())
     pixels = Vector{eltype(target)}(undef, length(shapes))
-    Threads.@threads for i=1:length(shapes)
+    Threads.@threads for i in eachindex(shapes)
         @inbounds pixels[i] = averagepixel(target, shapes[i], algorithm)
     end
     pixels
+end
+
+"""State for opaquerecolor"""
+struct OpaqueRecolorRasterState <: RasterState
+    visited::BitArray{2}
+    colour::RGB{Float32}
+    count::Int32
+end
+
+"""Raster procedure for opaquerecolor"""
+function rasterfunc(i, j, image, state::OpaqueRecolorRasterState)
+    if state.visited[i, j]
+        state
+    else
+        state.visited[i, j] = 1
+        return @inbounds OpaqueRecolorRasterState(state.visited, state.colour + image[i, j], state.count + 1)
+    end
+end
+
+"""
+    opaquerecolor(target, shapes, algorithm)
+
+Return the optimal coloring assignment for a collection of overlapping, opaque shapes.
+
+See also [`RasterAlgorithm`](@ref)
+"""
+function opaquerecolor(target, shapes, algorithm)
+    colours = Vector{RGB{Float32}}(undef, length(shapes))
+    visited = BitArray{2}(undef, size(target))
+    fill!(visited, 0)
+    for k = length(shapes):-1:1
+        state = OpaqueRecolorRasterState(visited, zero(RGB{Float32}), 0)
+        state = rasterize(target, shapes[k], state, algorithm)
+        colours[k] = state.colour / Float32(state.count)
+    end
+
+    colours
 end
 
 """
