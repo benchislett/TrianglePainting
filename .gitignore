@@ -1,3 +1,4 @@
 build/
 .vscode/settings.json
 output*
+.ipynb_checkpoints
