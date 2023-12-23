@@ -2,6 +2,11 @@ module GreedySim
 
 using StaticArrays
 using Images
+using ImageFeatures
+using IntervalSets
+using Combinatorics
+using StatsBase
+using Serialization
 
 using Evolutionary
 using BlackBoxOptim
@@ -56,9 +61,7 @@ function commit!(hist, state, target, shape, colour ; losstype, applyrecolor=tru
     return
 end
 
-function simulate_iter_ga(state, target, nbatch, nepochs, nrefinement ; losstype)
-    rngs = 2.0f0 .* rand(Float32, nbatch, 6) .- 0.5f0 # todo generalize random initialization
-    tris = [Triangle(SVector{6, Float32}(slice)) for slice in eachslice(rngs, dims=1)]
+function simulate_iter_ga(state, target, tris, nbatch, nepochs, nrefinement ; losstype)
     colours = averagepixel_batch(target, tris, RasterAlgorithmScanline())
     losses = drawloss_batch(target, state.current, tris, colours, losstype, RasterAlgorithmScanline())
 
@@ -109,7 +112,24 @@ function simulate(target, nprims, nbatch, nepochs, nrefinement ; losstype = SELo
     push!(hist.history, deepcopy(state))
 
     for primidx = 1:nprims
-        minloss, mintri, mincol = simulate_iter_ga(state, target, nbatch, nepochs, nrefinement, losstype=losstype)
+        function sample_prob(image ; N, scale_factor = 5.0)
+            points = sample(1:prod(size(image)), Weights(reshape(Float32.(image).^scale_factor, prod(size(image)))), N)
+            return collect(map(linearidx -> CartesianIndices(image)[linearidx].I, points))
+        end
+
+        diff = Gray.(abs.(state.current .- target))
+        diff = diff ./ maximum(diff)
+
+        points = sample_prob(diff, N = 100)
+        points = map(p -> Point(p[1] / 200.0, p[2] / 200.0), points)
+        newtris = collect(map(Triangle, (combinations(points, 3))))
+
+        rngs = 2.0f0 .* rand(Float32, nbatch, 6) .- 0.5f0
+        firsttris = [Triangle(SVector{6, Float32}(slice)) for slice in eachslice(rngs, dims=1)]
+
+        tris = [firsttris ; newtris]
+    
+        minloss, mintri, mincol = simulate_iter_ga(state, target, tris, length(tris), nepochs, nrefinement, losstype=losstype)
 
         function sample_loss(xs)
             tri = Triangle(SVector{6, Float32}(xs))
@@ -118,13 +138,11 @@ function simulate(target, nprims, nbatch, nepochs, nrefinement ; losstype = SELo
             Float64(loss)
         end
 
-        for i=1:10
-            optres = bboptimize(x -> sample_loss(x); SearchRange=(0, 1), TraceMode=:silent, NumDimensions=6, MaxTime=5, PopulationSize=500 * i)
-            if optres.archive_output.best_fitness < minloss
-                minloss = optres.archive_output.best_fitness
-                mintri = Triangle(SVector{6, Float32}(optres.archive_output.best_candidate))
-                mincol = averagepixel(target, mintri, RasterAlgorithmScanline())
-            end
+        optres = bboptimize(x -> sample_loss(x); SearchRange=(0, 1), TraceMode=:silent, NumDimensions=6, MaxTime=15, PopulationSize=2000)
+        if optres.archive_output.best_fitness < minloss
+            minloss = optres.archive_output.best_fitness
+            mintri = Triangle(SVector{6, Float32}(optres.archive_output.best_candidate))
+            mincol = averagepixel(target, mintri, RasterAlgorithmScanline())
         end
 
         if minloss < 0 # normalized losses are negative if they reduce total loss
@@ -134,6 +152,7 @@ function simulate(target, nprims, nbatch, nepochs, nrefinement ; losstype = SELo
             if verbose
                 println("Added primitive $primidx with total loss ", state.best, " with difference ", prev - state.best)
             end
+            Serialization.serialize("output/simresult/simlog_$nprims-prims_$nbatch-batch_$nepochs-epoch_$nrefinement-refine.bin", hist)
         end
     end
 
