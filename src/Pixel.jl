@@ -53,7 +53,12 @@ See also [`Loss`](@ref)
 """
 loss(source::RGB{Float32}, target::RGB{Float32}, ::Loss) = error("Not implemented")
 
-loss(source::RGB{Float32}, target::RGB{Float32}, ::SELoss)::Float32 = abs2(source - target)
+function loss(source::RGB{Float32}, target::RGB{Float32}, ::SELoss)::Float32
+    dr::Float32 = source.r - target.r
+    dg::Float32 = source.g - target.g
+    db::Float32 = source.b - target.b
+    return (dr * dr) + (dg * dg) + (db * db)
+end
 
 function loss(source::RGB{Float32}, target::RGB{Float32}, ::AELoss)::Float32
     deltapixel = abs.(source - target)
