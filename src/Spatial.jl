@@ -4,6 +4,8 @@ export covers
 
 using ..Shapes2D
 
+using LLVM
+
 """
     covers(shape, point)
 
@@ -19,12 +21,15 @@ Ported from https://wrfranklin.org/Research/Short_Notes/pnpoly.html
 """
 function covers(p::Polygon{N}, point::Point) where {N}
     c::Bool = false
-    j::Int = N
+    j::Int32 = N
     testx, testy = point
-    for i = 1:N
+    for i::Int32 = 1:N
         vix, viy = vertex(p, i)
         vjx, vjy = vertex(p, j)
-        if ((viy > testy) != (vjy > testy)) && (testx < (vjx - vix) * (testy - viy) / (vjy - viy) + vix)
+        dy::Float32 = vjy - viy
+        dx::Float32 = vjx - vix
+        LLVM.Interop.assume(dy != 0.0)
+        if ((viy > testy) != (vjy > testy)) && (testx < dx * (testy - viy) / dy + vix)
             c = !c
         end
 

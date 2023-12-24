@@ -81,7 +81,7 @@ function simulate_iter_ga(state, target, tris, nbatch, nepochs, nrefinement ; lo
         end
 
         idxs = sortperm(losses)
-        upper = Int(floor(nbatch/10))
+        upper = Int32(floor(nbatch/10))
         toptris = copy(tris[idxs[1:upper]])
         topcols = copy(colours[idxs[1:upper]])
         toploss = copy(losses[idxs[1:upper]])

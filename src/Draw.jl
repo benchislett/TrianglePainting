@@ -73,7 +73,7 @@ See also [`drawloss`](@ref)
 """
 function drawloss_batch(target, background, shapes, colours, lossstate, algorithm = RasterAlgorithmPointwise())
     totals = Vector{Float32}(undef, length(shapes))
-    Threads.@threads for i=1:length(shapes)
+    Threads.@threads for i=eachindex(shapes)
         @inbounds totals[i] = drawloss(target, background, shapes[i], colours[i], lossstate, algorithm)
     end
     totals
@@ -136,11 +136,13 @@ end
 
 """Raster procedure for opaquerecolor"""
 function rasterfunc(i, j, image, state::OpaqueRecolorRasterState)
-    if state.visited[i, j]
-        state
-    else
-        state.visited[i, j] = 1
-        return @inbounds OpaqueRecolorRasterState(state.visited, state.colour + image[i, j], state.count + 1)
+    @inbounds begin
+        if state.visited[i, j]
+            state
+        else
+            state.visited[i, j] = 1
+            return OpaqueRecolorRasterState(state.visited, state.colour + image[i, j], state.count + 1)
+        end
     end
 end
 
@@ -152,27 +154,29 @@ Return the optimal coloring assignment for a collection of overlapping, opaque s
 See also [`RasterAlgorithm`](@ref)
 """
 function opaquerecolor(target, shapes, algorithm)
-    colours = Vector{RGB{Float32}}(undef, length(shapes))
-    visited = BitArray{2}(undef, size(target))
-    fill!(visited, 0)
-    for k = length(shapes):-1:1
-        state = OpaqueRecolorRasterState(visited, zero(RGB{Float32}), 0)
-        state = rasterize(target, shapes[k], state, algorithm)
-        colours[k] = state.colour / Float32(state.count)
-    end
+    @inbounds begin
+        colours = Vector{RGB{Float32}}(undef, length(shapes))
+        visited = BitArray{2}(undef, size(target))
+        fill!(visited, 0)
+        for k = length(shapes):-1:1
+            state = OpaqueRecolorRasterState(visited, zero(RGB{Float32}), 0)
+            state = rasterize(target, shapes[k], state, algorithm)
+            colours[k] = state.colour / Float32(state.count)
+        end
 
-    bg = zero(RGB{Float32})
-    count = 0
-    for i = 1:size(target)[1]
-        for j = 1:size(target)[2]
-            if !visited[i, j]
-                bg += target[i, j]
-                count += 1
+        bg = zero(RGB{Float32})
+        count = 0
+        for i = 1:size(target)[1]
+            for j = 1:size(target)[2]
+                if !visited[i, j]
+                    bg += target[i, j]
+                    count += 1
+                end
             end
         end
-    end
 
-    colours, bg / Float32(max(count, 1))
+        colours, bg / Float32(max(count, 1))
+    end
 end
 
 """

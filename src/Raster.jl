@@ -11,16 +11,16 @@ export RasterState, rasterfunc, rasterize
 export RasterAlgorithm, RasterAlgorithmScanline, RasterAlgorithmBounded, RasterAlgorithmPointwise
 
 """Convert a UV-space U coordinate to an image-space X coordinate"""
-u2x(u, w) = trunc(Int32, w * u) + 1
+u2x(u, w)::Int32 = trunc(Int32, w * u) + Int32(1)
 
 """Convert a UV-space V coordinate to an image-space Y coordinate"""
-v2y(v, h) = trunc(Int32, h * v) + 1
+v2y(v, h)::Int32 = trunc(Int32, h * v) + Int32(1)
 
 """Convert an image-space X coordinate to a UV-space U coordinate"""
-x2u(x, w) = Float32(x - 1) / Float32(w)
+x2u(x, w)::Float32 = Float32(x - 1) / Float32(w)
 
 """Convert an image-space Y coordinate to a UV-space V coordinate"""
-y2v(y, h) = Float32(y - 1) / Float32(h)
+y2v(y, h)::Float32 = Float32(y - 1) / Float32(h)
 
 """Stateful struct to be rasterized over the pixels of a shape by `rasterfunc`"""
 abstract type RasterState end

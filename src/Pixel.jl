@@ -4,6 +4,7 @@ using Images
 
 export over
 export Loss, SELoss, AELoss, loss
+using LLVM
 
 """
     over(source, background)
@@ -21,6 +22,7 @@ Applies the over-compositing algorithm to the source pixel "over" the background
 """
 function over(source::RGBA{Float32}, background::RGBA{Float32})
     alpha_new = source.alpha + background.alpha * (1.0f0 - source.alpha)
+    LLVM.Interop.assume(alpha_new != 0.0f0)
     
     pixel_r = (source.r * source.alpha + background.alpha * background.r * (1.0f0 - source.alpha)) / alpha_new;
     pixel_g = (source.g * source.alpha + background.alpha * background.g * (1.0f0 - source.alpha)) / alpha_new;

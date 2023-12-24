@@ -26,7 +26,7 @@ end
 """Return the static array of vertices of a Polygon"""
 vertices(p::Polygon) = p.vertices
 """Return the Point of the i-th vertex of a Polygon"""
-vertex(p::Polygon, i) = getindex(p.vertices, i)
+vertex(p::Polygon, i) = @inbounds p.vertices[i]
 
 """Axis-Aligned Bounding Box in 2D"""
 struct AABB <: AbstractShape
@@ -34,7 +34,7 @@ struct AABB <: AbstractShape
     max::Point
 end
 
-AABB(s::AbstractShape) = AABB(Point(0, 0), Point(1, 1))
+AABB(s::AbstractShape) = AABB(Point(0.0f0, 0.0f0), Point(1.0f0, 1.0f0))
 function AABB(p::Polygon)
     minx = reduce(min, (x(p) for p in p.vertices))
     miny = reduce(min, (y(p) for p in p.vertices))
