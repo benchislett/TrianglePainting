@@ -32,6 +32,10 @@ include("Mutate.jl")
 using .Mutate
 export numvars, mutate, mutate_batch
 
+include("DrawGPU.jl")
+using .GPUDraw2D
+export RasterAlgorithmGPU
+
 include("GreedySim.jl")
 using .GreedySim
 export PrimitiveSequence, SimState
