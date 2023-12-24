@@ -100,7 +100,7 @@ See also [`RasterAlgorithm`](@ref)
 function averagepixel(image, shape, algorithm = RasterAlgorithmPointwise())
     state = PixelAverageRasterState{eltype(image)}(zero(eltype(image)), 0)
     state = rasterize(image, shape, state, algorithm)
-    state.colour / state.count
+    state.colour / Float32(max(Int32(1), state.count))
 end
 
 """
