@@ -47,7 +47,8 @@ end
 
 """Raster procedure for drawloss"""
 function rasterfunc(i, j, image, state::DrawlossRasterState{Arr, Pix, LossType}) where {Arr, Pix, LossType}
-    @inbounds newtotal::Float32 = state.total + loss(state.colour, state.target[i, j], state.loss) - loss(image[i, j], state.target[i, j], state.loss)
+    nextcol = over(state.colour, image[i, j])
+    @inbounds newtotal::Float32 = state.total + loss(nextcol, state.target[i, j], state.loss) - loss(image[i, j], state.target[i, j], state.loss)
     DrawlossRasterState{Arr, Pix, LossType}(state.target, state.colour, state.loss, newtotal)
 end
 
