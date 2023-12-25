@@ -67,7 +67,7 @@ function simulate_iter_ga(state, target, tris, nbatch, nepochs, nrefinement ; lo
 
     for roundidx = 1:nepochs
         for k=1:nrefinement
-            rngs = randn(Float32, nbatch, 6) * 0.05f0
+            rngs = randn(Float32, nbatch, 6) * range(0.05f0, 0.01f0, length=nrefinement)[k]
             newtris = mutate_batch(tris, rngs)
             newcolours = averagepixel_batch(target, newtris, RasterAlgorithmScanline())
             newlosses = drawloss_batch(target, state.current, newtris, newcolours, losstype, RasterAlgorithmScanline())
