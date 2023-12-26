@@ -87,12 +87,13 @@ function drawloss_gpu_kernel!(tris, cols, losses, target_d, img_d, lossstate)
     nothing
 end
 
-function averagepixel_gpu_kernel!(tris, cols, target_d)
+function averagepixel_gpu_kernel!(target_d, background_d, alpha::Float32, shapes_d, cols_d_out)
     @inbounds begin
         tid = threadIdx().x
         bid = blockIdx().x
+        LLVM.Interop.assume(alpha != 0)
 
-        shape::Triangle = tris[bid]
+        shape::Triangle = shapes_d[bid]
         
         w::Int32, h::Int32 = size(target_d)
         xfloor, xceil, yfloor, yceil = loop_bounds(shape, size(target_d))
@@ -106,7 +107,7 @@ function averagepixel_gpu_kernel!(tris, cols, target_d)
             if x <= w
                 for y=yfloor:yceil
                     if covers(shape, Point(x2u(x, w), y2v(y, h)))
-                        col += target_d[x, y]
+                        col += ((target_d[x, y] - ((1.0f0 - alpha) .* background_d[x, y])) ./ alpha)
                         amt += Int32(1)
                     end
                 end
@@ -122,7 +123,7 @@ function averagepixel_gpu_kernel!(tris, cols, target_d)
         col = col ./ denom
 
         if tid == Int32(1)
-            cols[bid] = col
+            cols_d_out[bid] = col
         end
 
     end
@@ -133,8 +134,8 @@ function drawloss_gpu!(tris_d, cols_d, losses_d_out, target_d, img_d, lossstate)
     CUDA.@sync begin @cuda threads=32 blocks=length(tris_d) always_inline=true drawloss_gpu_kernel!(tris_d, cols_d, losses_d_out, target_d, img_d, lossstate) end
 end
 
-function averagepixel_gpu!(tris_d, cols_d_out, target_d)
-    CUDA.@sync begin @cuda threads=32 blocks=length(tris_d) always_inline=true averagepixel_gpu_kernel!(tris_d, cols_d_out, target_d) end
+function averagepixel_gpu!(target_d, background_d, alpha, shapes_d, cols_d_out)
+    CUDA.@sync begin @cuda threads=32 blocks=length(shapes_d) always_inline=true averagepixel_gpu_kernel!(target_d, background_d, alpha, shapes_d, cols_d_out) end
 end
 
 function drawloss_batch(target, background, shapes, colours, lossstate, ::RasterAlgorithmGPU)
@@ -147,14 +148,14 @@ function drawloss_batch(target, background, shapes, colours, lossstate, ::Raster
     Array(losses_d)
 end
 
-function averagepixel_batch(target, shapes, ::RasterAlgorithmGPU)
+function averagepixel_batch(target, background, alpha, shapes, ::RasterAlgorithmGPU)
     if !CUDA.functional()
-        return averagepixel_batch(target, shapes, RasterAlgorithmPointwise())
+        return averagepixel_batch(target, background, alpha, shapes, RasterAlgorithmPointwise())
     end
 
     pixels_d = CuArray{RGB{Float32}}(undef, length(shapes))
-    averagepixel_gpu!(cu(shapes), pixels_d, cu(target))
-    Array(pixels_d)
+    averagepixel_gpu!(cu(target), cu(background), alpha, cu(shapes), pixels_d)
+    collect(map(pix -> RGBA{Float32}(pix.r, pix.g, pix.b, alpha), Array(pixels_d)))
 end
 
 end

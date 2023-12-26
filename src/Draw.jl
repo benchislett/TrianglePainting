@@ -81,27 +81,30 @@ function drawloss_batch(target, background, shapes, colours, lossstate, algorith
 end
 
 """State for averagepixel"""
-struct PixelAverageRasterState{Pix} <: RasterState
-    colour::Pix
+struct PixelAverageRasterState <: RasterState
+    current::Array{RGB{Float32}, 2}
+    colour::RGB{Float32}
+    alpha::Float32
     count::Int32
 end
 
 """Raster procedure for averagepixel"""
-function rasterfunc(i, j, image, state::PixelAverageRasterState{Pix}) where Pix
-    @inbounds PixelAverageRasterState{Pix}(state.colour + image[i, j], state.count + 1)
+function rasterfunc(i, j, image, state::PixelAverageRasterState)
+    @inbounds PixelAverageRasterState(state.current, state.colour + ((image[i, j] - ((1.0f0 - state.alpha) .* state.current[i, j])) ./ state.alpha), state.alpha, state.count + 1)
 end
 
 """
-    averagepixel(image, shape, algorithm)
+    averagepixel(target, current, shape, algorithm)
 
 Return the average pixel value of pixels in an image which are contained in a shape.
 
 See also [`RasterAlgorithm`](@ref)
 """
-function averagepixel(image, shape, algorithm = RasterAlgorithmPointwise())
-    state = PixelAverageRasterState{eltype(image)}(zero(eltype(image)), 0)
-    state = rasterize(image, shape, state, algorithm)
-    state.colour / Float32(max(Int32(1), state.count))
+function averagepixel(target, current, alpha, shape, algorithm = RasterAlgorithmPointwise())
+    state = PixelAverageRasterState(current, zero(RGB{Float32}), alpha, 0)
+    state = rasterize(target, shape, state, algorithm)
+    col = state.colour / Float32(max(Int32(1), state.count))
+    RGBA{Float32}(col.r, col.g, col.b, alpha)
 end
 
 """
@@ -114,16 +117,16 @@ function averagepixel(image)
 end
 
 """
-    averagepixel_batch(target, shapes, algorithm)
+    averagepixel_batch(target, current, alpha, shapes, algorithm)
 
 Return a vector of average pixels in an image, calculated in the same fashion as averagepixel.
 
 See also [`averagepixel`](@ref)
 """
-function averagepixel_batch(target, shapes, algorithm = RasterAlgorithmPointwise())
-    pixels = Vector{eltype(target)}(undef, length(shapes))
+function averagepixel_batch(target, current, alpha, shapes, algorithm = RasterAlgorithmPointwise())
+    pixels = Vector{RGBA{Float32}}(undef, length(shapes))
     Threads.@threads for i in eachindex(shapes)
-        @inbounds pixels[i] = averagepixel(target, shapes[i], algorithm)
+        @inbounds pixels[i] = averagepixel(target, current, alpha, shapes[i], algorithm)
     end
     pixels
 end

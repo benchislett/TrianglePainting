@@ -17,6 +17,7 @@ using ..Spatial2D
 using ..Draw2D
 using ..Pixel
 using ..Mutate
+using ..GPUDraw2D
 
 export PrimitiveSequence, SimState
 export simulate, commit!, redraw!, genbackground, simulate_iter_ga
@@ -38,20 +39,20 @@ function redraw!(state, target)
     initial = zero(target) .+ state.background
     state.current = initial
     for k in eachindex(state.shapes)
-        draw!(state.current, state.shapes[k], state.current_colours[k], RasterAlgorithmScanline())
+        draw!(state.current, state.shapes[k], state.current_colours[k], RasterAlgorithmBounded())
     end
 end
 
-function commit!(hist, state, target, shape, colour ; losstype, applyrecolor=true)
+function commit!(hist, state, target, shape, colour ; losstype, applyrecolor=false)
     push!(state.shapes, shape)
     push!(state.original_colours, copy(colour))
     push!(state.current_colours, copy(colour))
 
     if applyrecolor
-        state.current_colours, state.background = opaquerecolor(target, state.shapes, RasterAlgorithmScanline())
+        state.current_colours, state.background = opaquerecolor(target, state.shapes, RasterAlgorithmBounded())
         redraw!(state, target)
     else
-        draw!(state.current, shape, colour, RasterAlgorithmScanline())
+        draw!(state.current, shape, colour, RasterAlgorithmBounded())
     end
 
     state.best = imloss(target, state.current, losstype)
@@ -61,16 +62,17 @@ function commit!(hist, state, target, shape, colour ; losstype, applyrecolor=tru
     return
 end
 
-function simulate_iter_ga(state, target, tris, nbatch, nepochs, nrefinement ; losstype)
-    colours = averagepixel_batch(target, tris, RasterAlgorithmScanline())
-    losses = drawloss_batch(target, state.current, tris, colours, losstype, RasterAlgorithmScanline())
+function simulate_iter_ga(state, target, tris, nbatch, nepochs, nrefinement, alpha ; losstype)
+    raster_algorithm = RasterAlgorithmGPU()
+    colours = averagepixel_batch(target, state.current, alpha, tris, raster_algorithm)
+    losses = drawloss_batch(target, state.current, tris, colours, losstype, raster_algorithm)
 
     for roundidx = 1:nepochs
         for k=1:nrefinement
             rngs = randn(Float32, nbatch, 6) * range(0.05f0, 0.01f0, length=nrefinement)[k]
             newtris = mutate_batch(tris, rngs)
-            newcolours = averagepixel_batch(target, newtris, RasterAlgorithmScanline())
-            newlosses = drawloss_batch(target, state.current, newtris, newcolours, losstype, RasterAlgorithmScanline())
+            newcolours = averagepixel_batch(target, state.current, alpha, newtris, raster_algorithm)
+            newlosses = drawloss_batch(target, state.current, newtris, newcolours, losstype, raster_algorithm)
             for i=1:nbatch
                 if newlosses[i] < losses[i]
                     losses[i] = newlosses[i]
@@ -102,7 +104,9 @@ function simulate_iter_ga(state, target, tris, nbatch, nepochs, nrefinement ; lo
     minloss, mintri, mincol
 end
 
-function simulate(target, nprims, nbatch, nepochs, nrefinement ; losstype = SELoss(), verbose=true)
+function simulate(target, nprims, nbatch, nepochs, nrefinement, alpha ; losstype = SELoss(), verbose=true)
+    N = trunc(Int, floor(nbatch / 2))
+
     hist = SimLog{Triangle, eltype(target)}([])
 
     state = SimState{Triangle, eltype(target)}(averagepixel(target), [], [], [], zero(target), Inf32)
@@ -116,34 +120,35 @@ function simulate(target, nprims, nbatch, nepochs, nrefinement ; losstype = SELo
             points = sample(1:prod(size(image)), Weights(reshape(Float32.(image).^scale_factor, prod(size(image)))), N)
             return collect(map(linearidx -> CartesianIndices(image)[linearidx].I, points))
         end
-
+        
         diff = Gray.(abs.(state.current .- target))
         diff = diff ./ maximum(diff)
+        
+        points = sample_prob(diff, N = searchsortedfirst([binomial(i, 3) for i = 1:10000], N))
+        points = map(p -> Point(p[1] / size(target)[1], p[2] / size(target)[2]), points)
+        newtris = collect(map(Triangle, (combinations(points, 3))))[1:N]
 
-        points = sample_prob(diff, N = 100)
-        points = map(p -> Point(p[1] / 200.0, p[2] / 200.0), points)
-        newtris = collect(map(Triangle, (combinations(points, 3))))
-
-        rngs = 2.0f0 .* rand(Float32, nbatch, 6) .- 0.5f0
+        rngs = 2.0f0 .* rand(Float32, N, 6) .- 0.5f0
         firsttris = [Triangle(SVector{6, Float32}(slice)) for slice in eachslice(rngs, dims=1)]
 
         tris = [firsttris ; newtris]
     
-        minloss, mintri, mincol = simulate_iter_ga(state, target, tris, length(tris), nepochs, nrefinement, losstype=losstype)
+        minloss, mintri, mincol = simulate_iter_ga(state, target, tris, length(tris), nepochs, nrefinement, alpha, losstype=losstype)
 
-        function sample_loss(xs)
-            tri = Triangle(SVector{6, Float32}(xs))
-            col = averagepixel(target, tri, RasterAlgorithmScanline())
-            loss = drawloss(target, state.current, tri, col, SELoss(), RasterAlgorithmScanline())
-            Float64(loss)
-        end
+        # function sample_loss(xs)
+        #     tri = Triangle(SVector{6, Float32}(xs))
+        #     col = averagepixel(target, tri, RasterAlgorithmBounded())
+        #     loss = drawloss(target, state.current, tri, col, SELoss(), RasterAlgorithmBounded())
+        #     Float64(loss)
+        # end
 
-        optres = bboptimize(x -> sample_loss(x); SearchRange=(0, 1), TraceMode=:silent, NumDimensions=6, MaxTime=15, PopulationSize=2000)
-        if optres.archive_output.best_fitness < minloss
-            minloss = optres.archive_output.best_fitness
-            mintri = Triangle(SVector{6, Float32}(optres.archive_output.best_candidate))
-            mincol = averagepixel(target, mintri, RasterAlgorithmScanline())
-        end
+        # optres = bboptimize(x -> sample_loss(x); SearchRange=(0, 1), TraceMode=:silent, NumDimensions=6, MaxTime=15, PopulationSize=2000)
+        # if optres.archive_output.best_fitness < minloss
+        #     println("BBOPTIMIZE useful")
+        #     minloss = optres.archive_output.best_fitness
+        #     mintri = Triangle(SVector{6, Float32}(optres.archive_output.best_candidate))
+        #     mincol = averagepixel(target, mintri, RasterAlgorithmBounded())
+        # end
 
         if minloss < 0 # normalized losses are negative if they reduce total loss
             prev = state.best
