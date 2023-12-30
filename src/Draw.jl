@@ -3,7 +3,7 @@ module Draw2D
 using Images
 
 export draw!
-export imloss, drawloss, drawloss_batch, averagepixel, averagepixel_batch, opaquerecolor
+export imloss, drawloss, drawloss_batch, averagepixel, averagepixel_batch, opaquerecolor, alpharecolor
 
 using ..Spatial2D
 using ..Shapes2D
@@ -181,6 +181,71 @@ function opaquerecolor(target, shapes, algorithm)
 
         colours, bg / Float32(max(count, 1))
     end
+end
+
+"""State for alpharecolor"""
+struct AlphaRecolorRasterState <: RasterState
+    A::Matrix{Float64}
+    coeffs::Matrix{Float64}
+    alpha::Float64
+    k::Int32
+end
+
+function rasterfunc(i, j, image, state::AlphaRecolorRasterState)
+    @inbounds begin
+        colidx = 3 * (state.k - 1) + 1
+        t_idx = ((j - 1) * size(image)[1] + (i - 1)) + 1
+        a_idx = (t_idx - 1) * 3 + 1
+        coeff = state.coeffs[i, j]
+
+        state.A[a_idx + 0, colidx + 0] = coeff
+        state.A[a_idx + 1, colidx + 1] = coeff
+        state.A[a_idx + 2, colidx + 2] = coeff
+
+        state.coeffs[i, j] = coeff * (1.0f0 - state.alpha)
+    end
+
+    state
+end
+
+function alpharecolor(target, shapes, alpha, algorithm)
+    A = zeros(3 * prod(size(target)), 3 * length(shapes) + 3)
+    y = zeros(3 * prod(size(target)))
+    coeffs = Array{Float64, 2}(undef, size(target))
+    fill!(coeffs, alpha)
+
+    for k = length(shapes):-1:1
+        state = AlphaRecolorRasterState(A, coeffs, alpha, k)
+        rasterize(target, shapes[k], state, algorithm)
+    end
+
+    w, h = size(target)
+    @inbounds for j = 1:h
+        for i = 1:w
+            t_idx = ((j - 1) * size(target)[1] + (i - 1)) + 1
+            a_idx = (t_idx - 1) * 3 + 1
+
+            y[a_idx + 0] = target[t_idx].r
+            y[a_idx + 1] = target[t_idx].g
+            y[a_idx + 2] = target[t_idx].b
+
+            A[a_idx + 0, 3 * length(shapes) + 1] = coeffs[i, j] / alpha
+            A[a_idx + 1, 3 * length(shapes) + 2] = coeffs[i, j] / alpha
+            A[a_idx + 2, 3 * length(shapes) + 3] = coeffs[i, j] / alpha
+        end
+    end
+
+    x = A \ y
+
+    colours = Vector{RGB{Float32}}(undef, length(shapes))
+    for k in eachindex(shapes)
+        colidx = 3 * (k - 1) + 1
+        @inbounds colours[k] = clamp01.(RGB{Float32}(x[colidx + 0], x[colidx + 1], x[colidx + 2]))
+    end
+
+    background = clamp01.(RGB{Float32}(x[3 * length(shapes) + 1], x[3 * length(shapes) + 2], x[3 * length(shapes) + 3]))
+
+    colours, background
 end
 
 """
