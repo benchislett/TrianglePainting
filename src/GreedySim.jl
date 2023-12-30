@@ -25,8 +25,8 @@ export simulate, commit!, redraw!, genbackground, simulate_iter_ga
 mutable struct SimState{Shape, Pixel}
     background::RGB{Float32}
     shapes::Vector{Shape}
-    current_colours::Vector{Pixel}
-    original_colours::Vector{Pixel}
+    colours::Vector{Pixel}
+    alpha::Float32
     current::Array{Pixel, 2}
     best::Float32
 end
@@ -39,20 +39,23 @@ function redraw!(state, target)
     initial = zero(target) .+ state.background
     state.current = initial
     for k in eachindex(state.shapes)
-        draw!(state.current, state.shapes[k], state.current_colours[k], RasterAlgorithmBounded())
+        draw!(state.current, state.shapes[k], RGBA{Float32}(state.colours[k].r, state.colours[k].g, state.colours[k].b, state.alpha), RasterAlgorithmScanline())
     end
 end
 
-function commit!(hist, state, target, shape, colour ; losstype, applyrecolor=false)
+function commit!(hist, state, target, shape, colour ; losstype, applyrecolor=true)
     push!(state.shapes, shape)
-    push!(state.original_colours, copy(colour))
-    push!(state.current_colours, copy(colour))
+    push!(state.colours, copy(colour))
 
     if applyrecolor
-        state.current_colours, state.background = opaquerecolor(target, state.shapes, RasterAlgorithmBounded())
+        if state.alpha >= 0.995
+            state.colours, state.background = opaquerecolor(target, state.shapes, RasterAlgorithmScanline())
+        else
+            state.colours, state.background = alpharecolor(target, state.shapes, state.alpha, RasterAlgorithmScanline())
+        end
         redraw!(state, target)
     else
-        draw!(state.current, shape, colour, RasterAlgorithmBounded())
+        draw!(state.current, shape, colour, RasterAlgorithmScanline())
     end
 
     state.best = imloss(target, state.current, losstype)
@@ -63,7 +66,7 @@ function commit!(hist, state, target, shape, colour ; losstype, applyrecolor=fal
 end
 
 function simulate_iter_ga(state, target, tris, nbatch, nepochs, nrefinement, alpha ; losstype)
-    raster_algorithm = RasterAlgorithmGPU()
+    raster_algorithm = RasterAlgorithmScanline()
     colours = averagepixel_batch(target, state.current, alpha, tris, raster_algorithm)
     losses = drawloss_batch(target, state.current, tris, colours, losstype, raster_algorithm)
 
@@ -101,7 +104,7 @@ function simulate_iter_ga(state, target, tris, nbatch, nepochs, nrefinement, alp
     mintri = tris[minidx]
     mincol = colours[minidx]
 
-    minloss, mintri, mincol
+    minloss, mintri, clamp01.(mincol)
 end
 
 function simulate(target, nprims, nbatch, nepochs, nrefinement, alpha ; losstype = SELoss(), verbose=true)
@@ -109,7 +112,8 @@ function simulate(target, nprims, nbatch, nepochs, nrefinement, alpha ; losstype
 
     hist = SimLog{Triangle, eltype(target)}([])
 
-    state = SimState{Triangle, eltype(target)}(averagepixel(target), [], [], [], zero(target), Inf32)
+    state = SimState{Triangle, eltype(target)}(averagepixel(target), [], [], alpha, zero(target), Inf32)
+    # state = SimState{Triangle, eltype(target)}(one(RGB{Float32}), [], [], alpha, zero(target), Inf32)
     redraw!(state, target)
     state.best = imloss(target, state.current, losstype)
 
