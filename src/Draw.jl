@@ -37,19 +37,34 @@ function draw!(image, shape, colour, algorithm = RasterAlgorithmPointwise())
     return true
 end
 
-"""State for drawloss"""
+"""States for drawloss"""
 struct DrawlossRasterState{Arr, Pix, LossType <: Loss} <: RasterState
-    target::Arr
+    background::Arr
     colour::Pix
     loss::LossType
     total::Float32
 end
 
-"""Raster procedure for drawloss"""
-function rasterfunc(i, j, image, state::DrawlossRasterState{Arr, Pix, LossType}) where {Arr, Pix, LossType}
-    nextcol = over(state.colour, image[i, j])
-    @inbounds newtotal::Float32 = state.total + loss(nextcol, state.target[i, j], state.loss) - loss(image[i, j], state.target[i, j], state.loss)
-    DrawlossRasterState{Arr, Pix, LossType}(state.target, state.colour, state.loss, newtotal)
+struct DrawlossFGRasterState{Arr, Arr2, Pix, LossType <: Loss} <: RasterState
+    background::Arr
+    foreground::Arr2
+    colour::Pix
+    loss::LossType
+    total::Float32
+end
+
+"""Raster procedures for drawloss"""
+function rasterfunc(i, j, target, state::DrawlossFGRasterState{Arr, Arr2, Pix, LossType}) where {Arr, Arr2, Pix, LossType}
+    @inbounds nextcol = over(state.foreground[i, j], over(state.colour, state.background[i, j]))
+    @inbounds currcol = over(state.foreground[i, j], state.background[i, j])
+    @inbounds newtotal::Float32 = state.total + loss(nextcol, target[i, j], state.loss) - loss(currcol, target[i, j], state.loss)
+    DrawlossFGRasterState{Arr, Arr2, Pix, LossType}(state.background, state.foreground, state.colour, state.loss, newtotal)
+end
+
+function rasterfunc(i, j, target, state::DrawlossRasterState{Arr, Pix, LossType}) where {Arr, Pix, LossType}
+    @inbounds nextcol = over(state.colour, state.background[i, j])
+    @inbounds newtotal::Float32 = state.total + loss(nextcol, target[i, j], state.loss) - loss(state.background[i, j], target[i, j], state.loss)
+    DrawlossRasterState{Arr, Pix, LossType}(state.background, state.colour, state.loss, newtotal)
 end
 
 """
@@ -59,10 +74,19 @@ Return the total loss if a shape were drawn on an image, using the given colour,
 
 See also [`Loss`](@ref), [`RasterAlgorithm`](@ref)
 """
-function drawloss(target, background, shape, colour, lossstate, algorithm = RasterAlgorithmPointwise())
-    state = DrawlossRasterState(target, colour, lossstate, 0.0f0)
-    state = rasterize(background, shape, state, algorithm)
-    state.total
+function drawloss(target, background, shape, colour, lossstate, algorithm = RasterAlgorithmPointwise() ; foreground=nothing)
+    total::Float32 = 0.0f0
+    if isnothing(foreground)
+        state = DrawlossRasterState(background, colour, lossstate, 0.0f0)
+        state = rasterize(target, shape, state, algorithm)
+        total = state.total
+    else
+        state = DrawlossFGRasterState(background, foreground, colour, lossstate, 0.0f0)
+        state = rasterize(target, shape, state, algorithm)
+        total = state.total
+    end
+
+    total
 end
 
 """
