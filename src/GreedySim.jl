@@ -43,9 +43,42 @@ function redraw!(state, target)
     end
 end
 
-function commit!(hist, state, target, shape, colour ; losstype, applyrecolor=true)
+function commit!(hist, state, target, shape, colour ; losstype, applyrecolor=true, applyglobalrefine=true)
     push!(state.shapes, shape)
     push!(state.colours, copy(colour))
+
+    makecol(x) = RGBA{Float32}(x.r, x.g, x.b, state.alpha)
+
+    if applyglobalrefine
+        for round = 1:10
+            Threads.@threads for which = 1:length(state.shapes)
+                background = zero(target) .+ state.background
+                for i = 1:(which-1)
+                    draw!(background, state.shapes[i], makecol(state.colours[i]), RasterAlgorithmScanline())
+                end
+                
+                foreground = zeros(RGBA{Float32}, size(target))
+                for i = (which+1):length(state.shapes)
+                    draw!(foreground, state.shapes[i], makecol(state.colours[i]), RasterAlgorithmScanline())
+                end
+                
+                best = 0.0f0
+                delta = zeros(Float32, numvars(eltype(state.shapes)))
+                bestshape = state.shapes[which]
+                for k = 1:1000
+                    newshape = mutate(bestshape, delta .* 0.005f0)
+                    ld = drawloss(target, background, newshape, makecol(state.colours[which]), SELoss(), RasterAlgorithmScanline(), foreground = foreground)
+                    if ld < best
+                        best = ld
+                        bestshape = newshape
+                    end
+                    randn!(delta)
+                end
+            
+                state.shapes[which] = bestshape
+            end
+        end
+    end
 
     if applyrecolor
         if state.alpha >= 0.995
