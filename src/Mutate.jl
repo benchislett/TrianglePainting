@@ -24,6 +24,12 @@ mutate(::AbstractShape, nums) = error("Not implemented")
 
 mutate(aabb::AABB, nums) = @inbounds AABB(Point(x(aabb.min) + nums[1], y(aabb.min) + nums[2]), Point(x(aabb.max) + nums[3], y(aabb.max) + nums[4]))
 
+function mutate(poly::Polygon{N}, nums) where N
+    @inbounds Polygon{N}(SVector{N, Point}((
+        Point(x(vertex(poly, i)) + nums[2 * (i - 1) + 1], y(vertex(poly, i)) + nums[2 * (i - 1) + 2]) for i = 1:N
+    )))
+end
+
 function mutate(tri::Triangle, nums)
     @inbounds Triangle(Point(x(vertex(tri, 1)) + nums[1], y(vertex(tri, 1)) + nums[2]),
                        Point(x(vertex(tri, 2)) + nums[3], y(vertex(tri, 2)) + nums[4]),
