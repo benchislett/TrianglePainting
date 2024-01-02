@@ -7,6 +7,7 @@ using IntervalSets
 using Combinatorics
 using StatsBase
 using Serialization
+using Random
 
 using Evolutionary
 using BlackBoxOptim
@@ -145,57 +146,62 @@ function simulate(target, nprims, nbatch, nepochs, nrefinement, alpha ; losstype
 
     hist = SimLog{Triangle, eltype(target)}([])
 
-    state = SimState{Triangle, eltype(target)}(averagepixel(target), [], [], alpha, zero(target), Inf32)
-    # state = SimState{Triangle, eltype(target)}(one(RGB{Float32}), [], [], alpha, zero(target), Inf32)
+    # state = SimState{Triangle, eltype(target)}(averagepixel(target), [], [], alpha, zero(target), Inf32)
+    state = SimState{Triangle, eltype(target)}(one(RGB{Float32}), [], [], alpha, zero(target), Inf32)
     redraw!(state, target)
     state.best = imloss(target, state.current, losstype)
 
     push!(hist.history, deepcopy(state))
 
+    prev::Float32 = 0.0f0
+
     for primidx = 1:nprims
-        function sample_prob(image ; N, scale_factor = 5.0)
-            points = sample(1:prod(size(image)), Weights(reshape(Float32.(image).^scale_factor, prod(size(image)))), N)
-            return collect(map(linearidx -> CartesianIndices(image)[linearidx].I, points))
-        end
-        
-        diff = Gray.(abs.(state.current .- target))
-        diff = diff ./ maximum(diff)
-        
-        points = sample_prob(diff, N = searchsortedfirst([binomial(i, 3) for i = 1:10000], N))
-        points = map(p -> Point(p[1] / size(target)[1], p[2] / size(target)[2]), points)
-        newtris = collect(map(Triangle, (combinations(points, 3))))[1:N]
-
-        rngs = 2.0f0 .* rand(Float32, N, 6) .- 0.5f0
-        firsttris = [Triangle(SVector{6, Float32}(slice)) for slice in eachslice(rngs, dims=1)]
-
-        tris = [firsttris ; newtris]
-    
-        minloss, mintri, mincol = simulate_iter_ga(state, target, tris, length(tris), nepochs, nrefinement, alpha, losstype=losstype)
-
-        # function sample_loss(xs)
-        #     tri = Triangle(SVector{6, Float32}(xs))
-        #     col = averagepixel(target, tri, RasterAlgorithmBounded())
-        #     loss = drawloss(target, state.current, tri, col, SELoss(), RasterAlgorithmBounded())
-        #     Float64(loss)
-        # end
-
-        # optres = bboptimize(x -> sample_loss(x); SearchRange=(0, 1), TraceMode=:silent, NumDimensions=6, MaxTime=15, PopulationSize=2000)
-        # if optres.archive_output.best_fitness < minloss
-        #     println("BBOPTIMIZE useful")
-        #     minloss = optres.archive_output.best_fitness
-        #     mintri = Triangle(SVector{6, Float32}(optres.archive_output.best_candidate))
-        #     mincol = averagepixel(target, mintri, RasterAlgorithmBounded())
-        # end
-
-        if minloss < 0 # normalized losses are negative if they reduce total loss
-            prev = state.best
-            commit!(hist, state, target, mintri, mincol, losstype=losstype)
-
-            if verbose
-                println("Added primitive $primidx with total loss ", state.best, " with difference ", prev - state.best)
+        itertime = @elapsed begin
+            function sample_prob(image ; N, scale_factor = 5.0)
+                points = sample(1:prod(size(image)), Weights(reshape(Float32.(image).^scale_factor, prod(size(image)))), N)
+                return collect(map(linearidx -> CartesianIndices(image)[linearidx].I, points))
             end
-            Serialization.serialize("output/simresult/simlog_$nprims-prims_$nbatch-batch_$nepochs-epoch_$nrefinement-refine.bin", hist)
+            
+            diff = Gray.(abs.(state.current .- target))
+            diff = diff ./ maximum(diff)
+            
+            points = sample_prob(diff, N = searchsortedfirst([binomial(i, 3) for i = 1:10000], N))
+            points = map(p -> Point(p[1] / size(target)[1], p[2] / size(target)[2]), points)
+            newtris = collect(map(Triangle, (combinations(points, 3))))[1:N]
+
+            rngs = 2.0f0 .* rand(Float32, N, 6) .- 0.5f0
+            firsttris = [Triangle(SVector{6, Float32}(slice)) for slice in eachslice(rngs, dims=1)]
+
+            tris = [firsttris ; newtris]
+        
+            minloss, mintri, mincol = simulate_iter_ga(state, target, tris, length(tris), nepochs, nrefinement, alpha, losstype=losstype)
+
+            # function sample_loss(xs)
+            #     tri = Triangle(SVector{6, Float32}(xs))
+            #     col = averagepixel(target, tri, RasterAlgorithmScanline())
+            #     loss = drawloss(target, state.current, tri, col, SELoss(), RasterAlgorithmScanline())
+            #     Float64(loss)
+            # end
+
+            # optres = bboptimize(x -> sample_loss(x); SearchRange=(0, 1), TraceMode=:silent, NumDimensions=6, MaxTime=15, PopulationSize=2000)
+            # if optres.archive_output.best_fitness < minloss
+            #     println("BBOPTIMIZE useful")
+            #     minloss = optres.archive_output.best_fitness
+            #     mintri = Triangle(SVector{6, Float32}(optres.archive_output.best_candidate))
+            #     mincol = averagepixel(target, mintri, RasterAlgorithmScanline())
+            # end
+
+            prev = state.best
+            if minloss < 0 # normalized losses are negative if they reduce total loss
+                commit!(hist, state, target, mintri, mincol, losstype=losstype)
+            end
         end
+
+        if verbose
+            println("Added primitive $primidx with total loss ", state.best, " with difference ", prev - state.best, " in $itertime seconds")
+        end
+
+        Serialization.serialize("output/simresult/simlog_$nprims-prims_$nbatch-batch_$nepochs-epoch_$nrefinement-refine.bin", hist)
     end
 
     hist
