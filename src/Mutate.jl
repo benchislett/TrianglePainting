@@ -1,5 +1,7 @@
 module Mutate
 
+using StaticArrays
+
 using ..Shapes2D
 
 export numvars, mutate, mutate_batch
