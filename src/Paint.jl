@@ -19,9 +19,6 @@ include("Draw.jl")
 include("Mutate.jl")
 @reexport using .Mutate
 
-include("DrawGPU.jl")
-@reexport using .GPUDraw2D
-
 include("GreedySim.jl")
 @reexport using .GreedySim
 

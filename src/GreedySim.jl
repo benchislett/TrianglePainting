@@ -18,7 +18,6 @@ using ..Spatial2D
 using ..Draw2D
 using ..Pixel
 using ..Mutate
-using ..GPUDraw2D
 
 export PrimitiveSequence, SimState
 export simulate, commit!, redraw!, genbackground, simulate_iter_ga
