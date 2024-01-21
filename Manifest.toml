@@ -2,7 +2,7 @@
 
 julia_version = "1.9.4"
 manifest_format = "2.0"
-project_hash = "25978a6ea1a8a9adba115325c729e57de4010888"
+project_hash = "6b1e09d0f9df980d012e32561d39c9b5363c8964"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "41c37aa88889c171f1300ceac1313c06e891d245"
@@ -2005,6 +2005,11 @@ version = "1.0.3"
 git-tree-sha1 = "874e8867b33a00e784c8a7e4b60afe9e037b74e1"
 uuid = "777ac1f9-54b0-4bf8-805c-2214025038e7"
 version = "1.1.0"
+
+[[deps.SimpleDraw]]
+git-tree-sha1 = "77b562e61b71987d9e72ddf45c22dab25579e0b9"
+uuid = "d1acf6f4-8553-480e-80ae-3c883f0a995a"
+version = "0.5.0"
 
 [[deps.SimpleTraits]]
 deps = ["InteractiveUtils", "MacroTools"]
