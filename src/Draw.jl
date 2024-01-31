@@ -235,7 +235,7 @@ end
 function alpharecolor(target, shapes, alpha, algorithm)
     A = zeros(3 * prod(size(target)), 3 * length(shapes) + 3)
     y = zeros(3 * prod(size(target)))
-    coeffs = Array{Float64, 2}(undef, size(target))
+    coeffs = Matrix{Float64}(undef, size(target))
     fill!(coeffs, alpha)
 
     for k = length(shapes):-1:1
