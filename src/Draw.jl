@@ -208,14 +208,14 @@ function opaquerecolor(target, shapes, algorithm)
 end
 
 """State for alpharecolor"""
-struct AlphaRecolorRasterState <: RasterState
-    A::Matrix{Float64}
+struct AlphaRecolorRasterState{MT} <: RasterState
+    A::MT
     coeffs::Matrix{Float64}
     alpha::Float64
     k::Int32
 end
 
-function rasterfunc(i, j, image, state::AlphaRecolorRasterState)
+function rasterfunc(i, j, image, state::AlphaRecolorRasterState{MT}) where {MT}
     @inbounds begin
         colidx = 3 * (state.k - 1) + 1
         t_idx = ((j - 1) * size(image)[1] + (i - 1)) + 1
@@ -239,7 +239,7 @@ function alpharecolor(target, shapes, alpha, algorithm)
     fill!(coeffs, alpha)
 
     for k = length(shapes):-1:1
-        state = AlphaRecolorRasterState(A, coeffs, alpha, k)
+        state = AlphaRecolorRasterState{typeof(A)}(A, coeffs, alpha, k)
         rasterize(target, shapes[k], state, algorithm)
     end
 
