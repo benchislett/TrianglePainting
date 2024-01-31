@@ -1,5 +1,6 @@
 module Draw2D
 
+using ArrayAllocators
 using Images
 
 export draw!
@@ -233,7 +234,7 @@ function rasterfunc(i, j, image, state::AlphaRecolorRasterState{MT}) where {MT}
 end
 
 function alpharecolor(target, shapes, alpha, algorithm)
-    A = zeros(3 * prod(size(target)), 3 * length(shapes) + 3)
+    A = Matrix{Float64}(calloc, 3 * prod(size(target)), 3 * length(shapes) + 3)
     y = zeros(3 * prod(size(target)))
     coeffs = Matrix{Float64}(undef, size(target))
     fill!(coeffs, alpha)
