@@ -3,6 +3,9 @@ module Draw2D
 using ArrayAllocators
 using Images
 
+using CUDA, Krylov
+using CUDA.CUSPARSE, SparseArrays
+
 export draw!
 export imloss, drawloss, drawloss_batch, averagepixel, averagepixel_batch, opaquerecolor, alpharecolor
 
@@ -260,7 +263,15 @@ function alpharecolor(target, shapes, alpha, algorithm)
         end
     end
 
-    x = A \ y
+    if CUDA.functional()
+        A_csr_gpu = CuSparseMatrixCSR(sparse(A))
+        b_gpu = CuVector(y)
+
+        x_csr, _ = lsqr(A_csr_gpu, b_gpu)
+        x = Array(x_csr)
+    else
+        x = sparse(A) \ y
+    end
 
     colours = Vector{RGB{Float32}}(undef, length(shapes))
     for k in eachindex(shapes)
