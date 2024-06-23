@@ -15,6 +15,11 @@ file(GLOB_RECURSE TESTS "test/*.cpp")
 add_library(Science STATIC ${SOURCES} ${HEADERS})
 target_include_directories(Science PUBLIC include)
 
+# set up LodePNG dependency
+add_library(LodePNG STATIC "ext/lodepng/lodepng.cpp" "ext/lodepng/lodepng.h")
+target_include_directories(LodePNG PUBLIC "ext/lodepng/")
+target_link_libraries(Science PUBLIC LodePNG)
+
 # set up CUDA as an optional dependency
 option(USE_CUDA "Use CUDA" OFF)
 if(USE_CUDA)
@@ -42,3 +47,12 @@ target_link_libraries(Test GTest::gtest_main Science)
 
 include(GoogleTest)
 gtest_discover_tests(Test)
+
+# set up experiments
+# create an executable for each .cpp source file in folder "experiments"
+file(GLOB_RECURSE EXPERIMENTS "experiments/*.cpp")
+foreach(EXPERIMENT ${EXPERIMENTS})
+  get_filename_component(EXPERIMENT_NAME ${EXPERIMENT} NAME_WE)
+  add_executable(${EXPERIMENT_NAME} ${EXPERIMENT})
+  target_link_libraries(${EXPERIMENT_NAME} Science)
+endforeach()
