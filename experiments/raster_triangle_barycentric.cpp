@@ -1,4 +1,5 @@
 #include "geometry/barycentric.h"
+#include "io/image.h"
 
 #include "lodepng.h"
 
@@ -25,7 +26,7 @@ int main() {
         }
     }
 
-    lodepng::encode("raster_triangle_barycentric.png", image, width, width);
+    io::save_png("raster_triangle_barycentric.png", {image, width, width, 4});
 
     return 0;
 }
