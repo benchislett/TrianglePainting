@@ -25,6 +25,11 @@ add_library(LodePNG STATIC "ext/lodepng/lodepng.cpp" "ext/lodepng/lodepng.h")
 target_include_directories(LodePNG PUBLIC "ext/lodepng/")
 target_link_libraries(Science PUBLIC LodePNG)
 
+# JSON dependency
+FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz)
+FetchContent_MakeAvailable(json)
+target_link_libraries(Science PUBLIC nlohmann_json::nlohmann_json)
+
 # set up CUDA as an optional dependency
 option(USE_CUDA "Use CUDA" OFF)
 if(USE_CUDA)
