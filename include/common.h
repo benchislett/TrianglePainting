@@ -1,9 +1,46 @@
 #pragma once
 
 #ifdef __CUDACC__
-#define HD __host__ __device__
+// CUDA-specific code
+
+#define CUDA_COMPILER
+#undef NO_CUDA_COMPILER
+
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
+
+#include <cublas_v2.h>
+
+#define CUDA_CHECK(ans) { cuda_check((ans), __FILE__, __LINE__); }
+inline void cuda_check(cudaError_t code, const char *file, int line, bool abort=true)
+{
+   if (code != cudaSuccess) 
+   {
+      fprintf(stderr, "CUDA Failure: %s %s %d\n", cudaGetErrorString(code), file, line);
+      if (abort) exit(code);
+   }
+}
+
+#ifndef cublasSafeCall
+#define cublasSafeCall(err) __cublasSafeCall(err, __FILE__, __LINE__)
+#endif
+
+inline void __cublasSafeCall(cublasStatus_t err, const char *file, const int line, bool abort = true) {
+    if (CUBLAS_STATUS_SUCCESS != err) {
+        fprintf(stderr, "CUBLAS error in file '%s', line %d\n \nerror %d \nterminating!\n", __FILE__, __LINE__, err);
+        if (abort) exit(err);
+    }
+}
+
 #else
-#define HD
+// Non-CUDA-specific code
+
+#define NO_CUDA_COMPILER
+#undef CUDA_COMPILER
+
+#define __host__
+#define __device__
+
 #endif
 
 #define PURE [[nodiscard]] __host__ __device__
