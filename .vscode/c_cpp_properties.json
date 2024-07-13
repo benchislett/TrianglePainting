@@ -5,7 +5,8 @@
             "includePath": [
                 "${default}",
                 "${workspaceFolder}/build/_deps/googletest-src/googletest/include",
-                "${workspaceFolder}/ext/lodepng"
+                "${workspaceFolder}/ext/lodepng",
+                "${workspaceFolder}/include"
             ],
             "defines": [],
             "macFrameworkPath": [
