@@ -12,5 +12,5 @@ namespace geometry2d {
         float u, v, w;
     };
 
-    HD barycentric barycentric_coordinates(const point& p, const triangle& t);
+    PURE barycentric barycentric_coordinates(const point& p, const triangle& t);
 };

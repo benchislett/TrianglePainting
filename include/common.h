@@ -5,3 +5,5 @@
 #else
 #define HD
 #endif
+
+#define PURE [[nodiscard]] __host__ __device__
