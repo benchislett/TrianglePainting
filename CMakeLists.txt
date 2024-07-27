@@ -1,7 +1,15 @@
 cmake_minimum_required(VERSION 3.11)
 set(CMAKE_CXX_STANDARD 20)
 
-project(Science)
+project(Science LANGUAGES CXX CUDA)
+
+set(CMAKE_CUDA_ARCHITECTURES "89")
+
+add_compile_options(-fsanitize=address)
+add_compile_options(-fno-omit-frame-pointer)
+add_link_options(-fsanitize=address)
+add_link_options(-fno-omit-frame-pointer)
+
 
 include(FetchContent)
 
@@ -17,7 +25,15 @@ file(GLOB_RECURSE SOURCES "src/*.cpp")
 file(GLOB_RECURSE HEADERS "include/*.h")
 file(GLOB_RECURSE TESTS "test/*.cpp")
 
-add_library(Science STATIC ${SOURCES} ${HEADERS})
+find_package(Thrust REQUIRED CONFIG)
+thrust_create_target(Thrust)
+find_package(CUDAToolkit REQUIRED)
+file(GLOB_RECURSE CUDA_SOURCES "src/*.cu")
+add_library(Science STATIC ${CUDA_SOURCES} ${SOURCES} ${HEADERS})
+target_link_libraries(Science PUBLIC CUDA::cublas)
+target_link_libraries(Science PUBLIC Thrust)
+
+
 target_include_directories(Science PUBLIC include)
 
 # LodePNG dependency
@@ -29,16 +45,6 @@ target_link_libraries(Science PUBLIC LodePNG)
 FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz)
 FetchContent_MakeAvailable(json)
 target_link_libraries(Science PUBLIC nlohmann_json::nlohmann_json)
-
-# set up CUDA as an optional dependency
-option(USE_CUDA "Use CUDA" OFF)
-if(USE_CUDA)
-  enable_language(CUDA)
-  file(GLOB_RECURSE CUDA_SOURCES "src/*.cu")
-  add_library(Science_CUDA STATIC ${CUDA_SOURCES})
-  target_include_directories(Science_CUDA PUBLIC include)
-  target_link_libraries(Science_CUDA PUBLIC Science)
-endif()
 
 # set up GoogleTest
 FetchContent_Declare(
@@ -61,7 +67,7 @@ gtest_discover_tests(Test)
 
 # set up experiments
 # create an executable for each .cpp source file in folder "experiments"
-file(GLOB_RECURSE EXPERIMENTS "experiments/*.cpp")
+file(GLOB_RECURSE EXPERIMENTS "experiments/*.cu")
 foreach(EXPERIMENT ${EXPERIMENTS})
   get_filename_component(EXPERIMENT_NAME ${EXPERIMENT} NAME_WE)
   add_executable(${EXPERIMENT_NAME} ${EXPERIMENT})
