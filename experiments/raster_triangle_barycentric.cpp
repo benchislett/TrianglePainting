@@ -7,7 +7,7 @@
 
 // Draw a triangle, colour it using barycentric coordinates, and save the result to a PNG file.
 int main() {
-    const int width = 512;
+    const int width = 1024;
     std::vector<unsigned char> image(width * width * 4, 255);
 
     geometry2d::triangle tri{{0.25, 0.25}, {0.75, 0.25}, {0.5, 0.75}};
