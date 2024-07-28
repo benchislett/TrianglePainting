@@ -1,15 +1,27 @@
 cmake_minimum_required(VERSION 3.11)
 set(CMAKE_CXX_STANDARD 20)
 
-project(Science LANGUAGES CXX CUDA)
+project(Science LANGUAGES CXX)
 
+option(USE_CUDA "Use CUDA" OFF)
+
+if(USE_CUDA)
+  message("Enabling CUDA")
+  enable_language(CUDA)
 set(CMAKE_CUDA_ARCHITECTURES "89")
+  find_package(Thrust REQUIRED CONFIG)
+  thrust_create_target(Thrust)
+  find_package(CUDAToolkit REQUIRED)
+endif()
 
-add_compile_options(-fsanitize=address)
-add_compile_options(-fno-omit-frame-pointer)
-add_link_options(-fsanitize=address)
-add_link_options(-fno-omit-frame-pointer)
-
+# enable AddressSanitizer if in debug mode
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  message("Enabling AddressSanitizer")
+  add_compile_options(-fsanitize=address)
+  add_compile_options(-fno-omit-frame-pointer)
+  add_link_options(-fsanitize=address)
+  add_link_options(-fno-omit-frame-pointer)
+endif()
 
 include(FetchContent)
 
@@ -25,14 +37,19 @@ file(GLOB_RECURSE SOURCES "src/*.cpp")
 file(GLOB_RECURSE HEADERS "include/*.h")
 file(GLOB_RECURSE TESTS "test/*.cpp")
 
-find_package(Thrust REQUIRED CONFIG)
-thrust_create_target(Thrust)
-find_package(CUDAToolkit REQUIRED)
-file(GLOB_RECURSE CUDA_SOURCES "src/*.cu")
-add_library(Science STATIC ${CUDA_SOURCES} ${SOURCES} ${HEADERS})
-target_link_libraries(Science PUBLIC CUDA::cublas)
-target_link_libraries(Science PUBLIC Thrust)
+if(USE_CUDA)
+  file(GLOB_RECURSE CUDA_SOURCES "src/*.cu")
+  file(GLOB_RECURSE CUDA_HEADERS "include/*.cuh")
+  list(APPEND SOURCES ${CUDA_SOURCES})
+  list(APPEND HEADERS ${CUDA_HEADERS})
+endif()
 
+add_library(Science STATIC ${SOURCES} ${HEADERS})
+
+if(USE_CUDA)
+  target_link_libraries(Science PUBLIC CUDA::cublas)
+  target_link_libraries(Science PUBLIC Thrust)
+endif()
 
 target_include_directories(Science PUBLIC include)
 
@@ -67,7 +84,13 @@ gtest_discover_tests(Test)
 
 # set up experiments
 # create an executable for each .cpp source file in folder "experiments"
-file(GLOB_RECURSE EXPERIMENTS "experiments/*.cu")
+file(GLOB_RECURSE EXPERIMENTS "experiments/*.cpp")
+
+if(USE_CUDA)
+  file(GLOB_RECURSE CUDA_EXPERIMENTS "experiments/*.cu")
+  list(APPEND EXPERIMENTS ${CUDA_EXPERIMENTS})
+endif()
+
 foreach(EXPERIMENT ${EXPERIMENTS})
   get_filename_component(EXPERIMENT_NAME ${EXPERIMENT} NAME_WE)
   add_executable(${EXPERIMENT_NAME} ${EXPERIMENT})
