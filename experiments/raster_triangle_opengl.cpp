@@ -1,61 +1,47 @@
 // Include standard headers
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <stdio.h>
 #include <string>
 #include <vector>
 #include <iostream>
+#include <cstdio>
+#include <cstdlib>
 #include <fstream>
-#include <algorithm>
-#include <sstream>
-using namespace std;
 
 #include "io/image.h"
 
-#include <stdlib.h>
-#include <string.h>
-
 #include <GL/glew.h>
+#include <GLFW/glfw3.h>
+#include <nlohmann/json.hpp>
 
-GLuint LoadShaders(const char * vertex_file_path,const char * fragment_file_path){
-
+GLuint compile_shaders() {
 	// Create the shaders
 	GLuint VertexShaderID = glCreateShader(GL_VERTEX_SHADER);
 	GLuint FragmentShaderID = glCreateShader(GL_FRAGMENT_SHADER);
 
+	// Source code
 	std::string VertexShaderCode = R"(#version 330 core 
-// Input vertex data, different for all executions of this shader.
-layout(location = 0) in vec2 vertexPosition_modelspace;
-layout(location = 1) in vec3 vertexUVW;
+layout(location = 0) in vec2 vertexPosition;
+layout(location = 1) in vec4 rgba;
 
-out vec3 UVW;
+out vec4 colour;
 
-void main(){
-    // remap the vertex position from [0, 1]^2 to [-1, 1]^2, with [0, 0] at the top left corner
-    gl_Position.x = (vertexPosition_modelspace.x - 0.5) * 2;
-    gl_Position.y = -(vertexPosition_modelspace.y - 0.5) * 2;
-    gl_Position.z = 0.0;
-    gl_Position.w = 1.0;
-
-    UVW = vertexUVW;
+void main() {
+	gl_Position = vec4((vertexPosition.x - 0.5) * 2.0, (vertexPosition.y - 0.5) * -2.0, 0.0, 1.0);
+    colour = rgba;
 }
 )";
-    
-    std::string FragmentShaderCode = R"(#version 330 core
-in vec3 UVW;
-out vec3 color;
 
-void main()
-{
-    color = vec3(UVW.x, UVW.y, UVW.z);
-})";
+    std::string FragmentShaderCode = R"(#version 330 core
+in vec4 colour;
+out vec4 out_colour;
+
+void main() {
+	out_colour = colour;
+}
+)";
 
 	GLint Result = GL_FALSE;
 	int InfoLogLength;
 
-	// Compile Vertex Shader
-	printf("Compiling shader : %s\n", vertex_file_path);
 	char const * VertexSourcePointer = VertexShaderCode.c_str();
 	glShaderSource(VertexShaderID, 1, &VertexSourcePointer , NULL);
 	glCompileShader(VertexShaderID);
@@ -66,13 +52,10 @@ void main()
 	if ( InfoLogLength > 0 ){
 		std::vector<char> VertexShaderErrorMessage(InfoLogLength+1);
 		glGetShaderInfoLog(VertexShaderID, InfoLogLength, NULL, &VertexShaderErrorMessage[0]);
-		printf("%s\n", &VertexShaderErrorMessage[0]);
+		fprintf(stderr, "%s\n", &VertexShaderErrorMessage[0]);
 	}
 
-
-
 	// Compile Fragment Shader
-	printf("Compiling shader : %s\n", fragment_file_path);
 	char const * FragmentSourcePointer = FragmentShaderCode.c_str();
 	glShaderSource(FragmentShaderID, 1, &FragmentSourcePointer , NULL);
 	glCompileShader(FragmentShaderID);
@@ -83,11 +66,10 @@ void main()
 	if ( InfoLogLength > 0 ){
 		std::vector<char> FragmentShaderErrorMessage(InfoLogLength+1);
 		glGetShaderInfoLog(FragmentShaderID, InfoLogLength, NULL, &FragmentShaderErrorMessage[0]);
-		printf("%s\n", &FragmentShaderErrorMessage[0]);
+		fprintf(stderr, "%s\n", &FragmentShaderErrorMessage[0]);
 	}
 
 	// Link the program
-	printf("Linking program\n");
 	GLuint ProgramID = glCreateProgram();
 	glAttachShader(ProgramID, VertexShaderID);
 	glAttachShader(ProgramID, FragmentShaderID);
@@ -99,10 +81,10 @@ void main()
 	if ( InfoLogLength > 0 ){
 		std::vector<char> ProgramErrorMessage(InfoLogLength+1);
 		glGetProgramInfoLog(ProgramID, InfoLogLength, NULL, &ProgramErrorMessage[0]);
-		printf("%s\n", &ProgramErrorMessage[0]);
+		fprintf(stderr, "%s\n", &ProgramErrorMessage[0]);
 	}
 
-	
+	// Clean up
 	glDetachShader(ProgramID, VertexShaderID);
 	glDetachShader(ProgramID, FragmentShaderID);
 	
@@ -112,17 +94,45 @@ void main()
 	return ProgramID;
 }
 
-
-
-// Include GLEW
-#include <GL/glew.h>
-
-// Include GLFW
-#include <GLFW/glfw3.h>
-GLFWwindow* window;
-
-int main( void )
+int main(int argc, char** argv)
 {
+	/* Config options */
+	int image_resolution = 512;
+	std::vector<float> vertex_buffer_data;
+	float background[4] = {1.0f, 1.0f, 1.0f, 0.0f};
+	if (argc > 1) {
+		std::string input_filename = argv[1];
+		auto json = nlohmann::json::parse(std::ifstream(input_filename));
+		for (auto& tri : json["triangles"]) {
+			for (int i = 0; i < 3; i++) {
+				vertex_buffer_data.push_back(tri["vertices"][i][0]);
+				vertex_buffer_data.push_back(tri["vertices"][i][1]);
+				vertex_buffer_data.push_back(tri["colour"][0]);
+				vertex_buffer_data.push_back(tri["colour"][1]);
+				vertex_buffer_data.push_back(tri["colour"][2]);
+				vertex_buffer_data.push_back(tri["colour"][3]);
+			}
+		}
+	} else {
+		vertex_buffer_data = {
+			0.25f, 0.25f, 1.0f, 0.f, 0.f, 1.f,
+			0.75f, 0.25f, 0.0f, 1.f, 0.f, 1.f,
+			0.5f,  0.75f, 0.0f, 0.f, 1.f, 1.f,
+			0.1f, 0.2f, 1.0f, 0.f, 0.f, 1.f,
+			0.15f,  0.3f, 0.0f, 1.f, 0.f, 1.f,
+			0.3f, 0.15f, 0.0f, 0.f, 1.f, 1.f,
+		};
+	}
+	int num_triangles = vertex_buffer_data.size() / 6 / 3;
+
+	if (argc > 2) {
+		image_resolution = std::atoi(argv[2]);
+	}
+	std::string output_filename = "raster_triangle_opengl.png";
+	if (argc > 3) {
+		output_filename = argv[3];
+	}
+
 	// Initialize GLFW
 	if( !glfwInit() )
 	{
@@ -131,17 +141,14 @@ int main( void )
 		return -1;
 	}
 
-	glfwWindowHint(GLFW_SAMPLES, 1);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make macOS happy; should not be needed
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE); // window will be hidden
 
 	// Open a window and create its OpenGL context
-	window = glfwCreateWindow( 512, 512, "Tutorial 02 - Red triangle", NULL, NULL);
-    glfwSetFramebufferSizeCallback(window, [](GLFWwindow* window, int width, int height) {
-        glViewport(0, 0, width, height);
-    });
+	GLFWwindow* window = glfwCreateWindow( 256, 256, "Tutorial 02 - Red triangle", NULL, NULL); // window will be hidden, resolution doesn't matter
 	if( window == NULL ){
 		fprintf( stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible. Try the 2.1 version of the tutorials.\n" );
 		getchar();
@@ -160,83 +167,95 @@ int main( void )
 	}
 
 	// Ensure we can capture the escape key being pressed below
-	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
+	// glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 
-	// Dark blue background
-	glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
+	glViewport(0, 0, image_resolution, image_resolution);
+
+	GLuint fbo;
+	glGenFramebuffers(1, &fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+	// set up a framebuffer for off-screen rendering
+	GLuint texture;
+	glGenTextures(1, &texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image_resolution, image_resolution, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);	
+
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
 	GLuint VertexArrayID;
 	glGenVertexArrays(1, &VertexArrayID);
 	glBindVertexArray(VertexArrayID);
 
 	// Create and compile our GLSL program from the shaders
-	GLuint programID = LoadShaders( "SimpleVertexShader.vertexshader", "SimpleFragmentShader.fragmentshader" );
+	GLuint programID = compile_shaders();
 
-
-	static const GLfloat g_vertex_buffer_data[] = { 
-		0.25f, 0.25f, 0.0f, 0.f, 1.f,
-        0.5f,  0.75f, 0.0f, 1.f, 0.f,
-        0.75f, 0.25f, 1.0f, 0.f, 0.f,
-	};
+	// enable blending
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	GLuint vertexbuffer;
 	glGenBuffers(1, &vertexbuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertex_buffer_data.size(), vertex_buffer_data.data(), GL_STATIC_DRAW);
 
-	do{
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClear( GL_COLOR_BUFFER_BIT );
 
-		// Clear the screen
-		glClear( GL_COLOR_BUFFER_BIT );
+	// Use the shader
+	glUseProgram(programID);
 
-		// Use our shader
-		glUseProgram(programID);
+	// Vertex position buffer
+	glEnableVertexAttribArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
+	glVertexAttribPointer(
+		0,              
+		2,             
+		GL_FLOAT,       
+		GL_FALSE,       
+		6*sizeof(float),
+		(void*)0        
+	);
 
-		// 1rst attribute buffer : vertices
-		glEnableVertexAttribArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-		glVertexAttribPointer(
-			0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
-			2,                  // size
-			GL_FLOAT,           // type
-			GL_FALSE,           // normalized?
-			5*sizeof(float),                  // stride
-			(void*)0            // array buffer offset
-		);
+	// Vertex colour buffer
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(
+		1,                  
+		4,                  
+		GL_FLOAT,           
+		GL_FALSE,           
+		6*sizeof(float),    
+		(void*)(2*sizeof(float))
+	);
 
+	// Draw the triangles
+	glDrawArrays(GL_TRIANGLES, 0, 3 * num_triangles);
 
-        // 2nd attribute buffer : UVW
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(
-			1,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
-			3,                  // size
-			GL_FLOAT,           // type
-			GL_FALSE,           // normalized?
-			5*sizeof(float),                  // stride
-			(void*)(2*sizeof(float))            // array buffer offset
-		);
+	glDisableVertexAttribArray(0);
 
-		// Draw the triangle !
-		glDrawArrays(GL_TRIANGLES, 0, 3); // 3 indices starting at 0 -> 1 triangle
-
-		glDisableVertexAttribArray(0);
-
-		// Swap buffers
-		glfwSwapBuffers(window);
-		glfwPollEvents();
-
-	} // Check if the ESC key was pressed or the window was closed
-	while( glfwGetKey(window, GLFW_KEY_ESCAPE ) != GLFW_PRESS &&
-		   glfwWindowShouldClose(window) == 0 );
-
+	glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
+	glPixelStorei(GL_PACK_SKIP_ROWS, 0);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glReadBuffer(GL_BACK_LEFT);
     // save a screenshot
-    int width, height;
-    glfwGetFramebufferSize(window, &width, &height);
-    std::vector<unsigned char> image(width * height * 3);
-    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, image.data());
-    std::reverse(image.begin(), image.end());
-    std::string filename = "raster_triangle_opengl.png";
-    io::save_png(filename, {image, (unsigned int)width, (unsigned int)height, 3});
+    int width = image_resolution, height = image_resolution;
+    // glfwGetFramebufferSize(window, &width, &height);
+    std::vector<unsigned char> image(width * height * 4);
+    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, image.data());
+	// mirror the image vertically
+	for (int y = 0; y < height / 2; y++) {
+		for (int x = 0; x < width; x++) {
+			for (int c = 0; c < 4; c++) {
+				std::swap(image[(y * width + x) * 4 + c], image[((height - 1 - y) * width + x) * 4 + c]);
+			}
+		}
+	}
+
+    io::save_png(output_filename, {std::move(image), (unsigned int)width, (unsigned int)height, 4});
 
 	// Cleanup VBO
 	glDeleteBuffers(1, &vertexbuffer);
