@@ -63,6 +63,17 @@ FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download
 FetchContent_MakeAvailable(json)
 target_link_libraries(Science PUBLIC nlohmann_json::nlohmann_json)
 
+# OpenGL dependency
+find_package(OpenGL REQUIRED)
+target_link_libraries(Science PUBLIC OpenGL::GL)
+target_link_libraries(Science PUBLIC OpenGL::GLU)
+# GLFW dependency
+find_package(glfw3 REQUIRED)
+target_link_libraries(Science PUBLIC glfw)
+# GLEW dependency
+find_package(GLEW REQUIRED)
+target_link_libraries(Science PUBLIC GLEW::GLEW)
+
 # set up GoogleTest
 FetchContent_Declare(
   googletest
@@ -95,14 +106,4 @@ foreach(EXPERIMENT ${EXPERIMENTS})
   get_filename_component(EXPERIMENT_NAME ${EXPERIMENT} NAME_WE)
   add_executable(${EXPERIMENT_NAME} ${EXPERIMENT})
   target_link_libraries(${EXPERIMENT_NAME} Science)
-  # link opengl
-  find_package(OpenGL REQUIRED)
-  target_link_libraries(${EXPERIMENT_NAME} OpenGL::GL)
-  target_link_libraries(${EXPERIMENT_NAME} OpenGL::GLU)
-  # link glfw
-  find_package(glfw3 REQUIRED)
-  target_link_libraries(${EXPERIMENT_NAME} glfw)
-  # link glew
-  find_package(GLEW REQUIRED)
-  target_link_libraries(${EXPERIMENT_NAME} GLEW::GLEW)
 endforeach()
