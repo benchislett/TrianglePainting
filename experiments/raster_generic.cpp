@@ -6,6 +6,7 @@
 #include <fstream>
 
 #include "io/image.h"
+#include "io/png.h"
 #include "geometry/types.h"
 #include "raster/rasterization.h"
 
@@ -16,12 +17,7 @@ int main(int argc, char** argv)
 	/* Config options */
 	int image_resolution = 512;
     std::vector<geometry2d::triangle> triangles;
-    std::vector<raster::RGBA255> colours;
-    raster::ImageBuffer<raster::RGBA255> image;
-    image.width = image_resolution;
-    image.height = image_resolution;
-    image.data.resize(image.width * image.height);
-    std::fill(image.data.begin(), image.data.end(), raster::RGBA255{0, 0, 0, 0});
+    std::vector<io::RGBA255> colours;
 	if (argc > 1) {
 		std::string input_filename = argv[1];
 		auto json = nlohmann::json::parse(std::ifstream(input_filename));
@@ -32,7 +28,7 @@ int main(int argc, char** argv)
                     {tri["vertices"][1][0], tri["vertices"][1][1]},
                     {tri["vertices"][2][0], tri["vertices"][2][1]}
                 });
-                colours.push_back(raster::RGBA255{
+                colours.push_back(io::RGBA255{
                     (unsigned char)(float(tri["colour"][0]) * 255),
                     (unsigned char)(float(tri["colour"][1]) * 255),
                     (unsigned char)(float(tri["colour"][2]) * 255),
@@ -49,9 +45,15 @@ int main(int argc, char** argv)
 		output_filename = argv[3];
 	}
 
-    rasterize_triangles_rgba_2d_opengl(triangles, colours, image);
+    io::Image<io::RGBA255> image;
+    image.width = image_resolution;
+    image.height = image_resolution;
+    image.data.resize(image.width * image.height);
+    std::fill(image.data.begin(), image.data.end(), io::RGBA255{0, 0, 0, 0});
 
-    io::save_png(output_filename, raster::cast_image(image));
+    raster::rasterize_triangles_rgba_2d_cpu_pointwise(triangles, colours, image);
+
+    io::save_png_rgba(output_filename, image);
 
 	return 0;
 }

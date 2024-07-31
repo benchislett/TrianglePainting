@@ -1,30 +1,75 @@
 #include "io/image.h"
 
-#include <iostream>
-#include <cassert>
-
 namespace io {
-
-    LodePNGColorType channels_to_colortype(unsigned int channels) {
-        assert (channels > 0 && channels <= 4);
-        LodePNGColorType colormodes[4] = {LCT_GREY, LCT_GREY_ALPHA, LCT_RGB, LCT_RGBA};
-        return colormodes[channels-1];
+    RGB01 to_rgb01(const RGB255 &rgb)
+    {
+        return RGB01{(float)rgb.r / 255, (float)rgb.g / 255, (float)rgb.b / 255};
     }
 
-    Image load_png(const std::string& filename, unsigned int channels) {
-        Image out;
-        std::vector<unsigned char> buf;
-        unsigned error = lodepng::load_file(buf, filename);
-        if(!error) error = lodepng::decode(out.data, out.width, out.height, buf, channels_to_colortype(channels));
-        if(error) std::cerr << "decoder error " << error << ": " << lodepng_error_text(error) << std::endl;
-        out.channels = 4;
+    RGBA01 to_rgba01(const RGBA255 &rgba)
+    {
+        return RGBA01{(RGBA01::data_type)rgba.r / 255, (float)rgba.g / 255, (float)rgba.b / 255, (float)rgba.a / 255};
+    }
+
+    RGB255 to_rgb255(const RGB01 &rgb)
+    {
+        return RGB255{(unsigned char)(rgb.r * 255), (unsigned char)(rgb.g * 255), (unsigned char)(rgb.b * 255)};
+    }
+
+    RGBA255 to_rgba255(const RGBA01 &rgba)
+    {
+        return RGBA255{(unsigned char)(rgba.r * 255), (unsigned char)(rgba.g * 255), (unsigned char)(rgba.b * 255), (unsigned char)(rgba.a * 255)};
+    }
+
+    Image<RGB01> to_rgb01(const Image<RGB255> &image)
+    {
+        Image<RGB01> out;
+        out.width = image.width;
+        out.height = image.height;
+        out.data.reserve(image.data.size());
+        for (auto &pixel : image.data)
+        {
+            out.data.push_back(to_rgb01(pixel));
+        }
         return out;
-    }
+    };
 
-    void save_png(const std::string& filename, const Image& image) {
-        std::vector<unsigned char> png;
-        unsigned error = lodepng::encode(png, image.data, image.width, image.height, channels_to_colortype(image.channels));
-        if(!error) lodepng::save_file(png, filename);
-        if(error) std::cerr << "encoder error " << error << ": "<< lodepng_error_text(error) << std::endl;
-    }
-};
+    Image<RGBA01> to_rgba01(const Image<RGBA255> &image)
+    {
+        Image<RGBA01> out;
+        out.width = image.width;
+        out.height = image.height;
+        out.data.reserve(image.data.size());
+        for (auto &pixel : image.data)
+        {
+            out.data.push_back(to_rgba01(pixel));
+        }
+        return out;
+    };
+
+    Image<RGB255> to_rgb255(const Image<RGB01> &image)
+    {
+        Image<RGB255> out;
+        out.width = image.width;
+        out.height = image.height;
+        out.data.reserve(image.data.size());
+        for (auto &pixel : image.data)
+        {
+            out.data.push_back(to_rgb255(pixel));
+        }
+        return out;
+    };
+
+    Image<RGBA255> to_rgba255(const Image<RGBA01> &image)
+    {
+        Image<RGBA255> out;
+        out.width = image.width;
+        out.height = image.height;
+        out.data.reserve(image.data.size());
+        for (auto &pixel : image.data)
+        {
+            out.data.push_back(to_rgba255(pixel));
+        }
+        return out;
+    };
+}

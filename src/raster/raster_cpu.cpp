@@ -2,8 +2,10 @@
 
 #include "geometry/barycentric.h"
 
+#include <algorithm>
+
 namespace raster {
-    void rasterize_triangles_rgba_2d_cpu_pointwise(const std::vector<geometry2d::triangle>& triangles, const std::vector<RGBA255>& colours, ImageBuffer<RGBA255>& image) {
+    void rasterize_triangles_rgba_2d_cpu_pointwise(const std::vector<geometry2d::triangle>& triangles, const std::vector<io::RGBA255>& colours, io::Image<io::RGBA255>& image) {
         for (int x = 0; x < image.width; x++) {
             for (int y = 0; y < image.height; y++) {
                 float u = (x + 0.5f) / (float)image.width;
@@ -19,7 +21,7 @@ namespace raster {
         }
     }
 
-    void rasterize_triangles_rgba_2d_cpu_bounded(const std::vector<geometry2d::triangle>& triangles, const std::vector<RGBA255>& colours, ImageBuffer<RGBA255>& image) {
+    void rasterize_triangles_rgba_2d_cpu_bounded(const std::vector<geometry2d::triangle>& triangles, const std::vector<io::RGBA255>& colours, io::Image<io::RGBA255>& image) {
         for (int i = 0; i < triangles.size(); i++) {
             auto tri = triangles[i];
 
