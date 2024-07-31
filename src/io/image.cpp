@@ -13,12 +13,12 @@ namespace io {
 
     RGB255 to_rgb255(const RGB01 &rgb)
     {
-        return RGB255{(unsigned char)(rgb.r * 255), (unsigned char)(rgb.g * 255), (unsigned char)(rgb.b * 255)};
+        return RGB255{(unsigned char)(rgb.r * 255.99), (unsigned char)(rgb.g * 255.99), (unsigned char)(rgb.b * 255.99)};
     }
 
     RGBA255 to_rgba255(const RGBA01 &rgba)
     {
-        return RGBA255{(unsigned char)(rgba.r * 255), (unsigned char)(rgba.g * 255), (unsigned char)(rgba.b * 255), (unsigned char)(rgba.a * 255)};
+        return RGBA255{(unsigned char)(rgba.r * 255.99), (unsigned char)(rgba.g * 255.99), (unsigned char)(rgba.b * 255.99), (unsigned char)(rgba.a * 255.99)};
     }
 
     Image<RGB01> to_rgb01(const Image<RGB255> &image)
