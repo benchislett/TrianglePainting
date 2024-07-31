@@ -38,6 +38,7 @@ int main(int argc, char** argv)
 	/* Config options */
 	int image_resolution = 512;
     std::string input_filename = "random_triangles.json";
+    std::string mode = "pointwise";
 	if (argc > 1) {
 		std::string input_filename = argv[1];
 	}
@@ -48,10 +49,13 @@ int main(int argc, char** argv)
 	if (argc > 3) {
 		output_filename = argv[3];
 	}
+    if (argc > 4) {
+        mode = argv[4];
+    }
 
     SceneParams scene;
     try {
-        auto [triangles, colours, background] = load_json(input_filename);
+        scene = load_json(input_filename);
     } catch (const std::exception& e) {
         std::cerr << "Error loading JSON, check that the format is correct. Error message: " << e.what() << std::endl;
         return 1;
@@ -61,9 +65,15 @@ int main(int argc, char** argv)
     image.width = image_resolution;
     image.height = image_resolution;
     image.data.resize(image.width * image.height);
-    std::fill(image.data.begin(), image.data.end(), io::RGBA255{0, 0, 0, 0});
+    std::fill(image.data.begin(), image.data.end(), io::RGBA255{0, 0, 0, 255});
 
-    raster::rasterize_triangles_rgba_2d_cpu_pointwise(scene.triangles, scene.colours, image);
+    if (mode == "bounded") {
+        raster::rasterize_triangles_rgba_2d_cpu_bounded(scene.triangles, scene.colours, image);
+    } else if (mode == "opengl") {
+        raster::rasterize_triangles_rgba_2d_opengl(scene.triangles, scene.colours, image);
+    } else {
+        raster::rasterize_triangles_rgba_2d_cpu_pointwise(scene.triangles, scene.colours, image);
+    }
 
     io::save_png_rgba(output_filename, image);
 
