@@ -25,6 +25,7 @@ int main() {
             {"colour", {dis(gen), dis(gen), dis(gen), 0.5f}}
         });
     }
+    json["background"] = {0.0f, 0.0f, 0.0f, 1.0f};
 
     std::ofstream out("random_triangles.json");
     out << json.dump(4) << std::endl;
