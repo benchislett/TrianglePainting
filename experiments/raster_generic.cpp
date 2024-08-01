@@ -18,15 +18,14 @@ auto load_json(const std::string& filename) {
     std::vector<io::RGBA255> colours;
     io::RGBA01 background{float(json["background"][0]), float(json["background"][1]), float(json["background"][2]), float(json["background"][3])};
     for (auto& tri : json["triangles"]) {
-        for (int i = 0; i < 3; i++) {
-            triangles.push_back(geometry2d::triangle{
-                {tri["vertices"][0][0], tri["vertices"][0][1]},
-                {tri["vertices"][1][0], tri["vertices"][1][1]},
-                {tri["vertices"][2][0], tri["vertices"][2][1]}
-            });
-            io::RGBA01 colour{float(tri["colour"][0]), float(tri["colour"][1]), float(tri["colour"][2]), float(tri["colour"][3])};
-            colours.push_back(io::to_rgba255(colour));
-        }
+        triangles.push_back(geometry2d::triangle{
+            {tri["vertices"][0][0], tri["vertices"][0][1]},
+            {tri["vertices"][1][0], tri["vertices"][1][1]},
+            {tri["vertices"][2][0], tri["vertices"][2][1]}
+        });
+        io::RGBA01 colour{float(tri["colour"][0]), float(tri["colour"][1]), float(tri["colour"][2]), float(tri["colour"][3])};
+        colours.push_back(io::to_rgba255(colour));
+    }
     return raster::RasterScene{triangles, colours, io::to_rgba255(background)};
 }
 
