@@ -12,8 +12,6 @@
 
 #include <nlohmann/json.hpp>
 
-struct SceneParams { std::vector<geometry2d::triangle> triangles; std::vector<io::RGBA255> colours; io::RGBA255 background; };
-
 auto load_json(const std::string& filename) {
     auto json = nlohmann::json::parse(std::ifstream(filename));
     std::vector<geometry2d::triangle> triangles;
@@ -29,8 +27,7 @@ auto load_json(const std::string& filename) {
             io::RGBA01 colour{float(tri["colour"][0]), float(tri["colour"][1]), float(tri["colour"][2]), float(tri["colour"][3])};
             colours.push_back(io::to_rgba255(colour));
         }
-    }
-    return SceneParams{triangles, colours, io::to_rgba255(background)};
+    return raster::RasterScene{triangles, colours, io::to_rgba255(background)};
 }
 
 int main(int argc, char** argv)
@@ -53,7 +50,7 @@ int main(int argc, char** argv)
         mode = argv[4];
     }
 
-    SceneParams scene;
+    raster::RasterScene scene;
     try {
         scene = load_json(input_filename);
     } catch (const std::exception& e) {
@@ -68,11 +65,11 @@ int main(int argc, char** argv)
     std::fill(image.data.begin(), image.data.end(), io::RGBA255{0, 0, 0, 255});
 
     if (mode == "bounded") {
-        raster::rasterize_triangles_rgba_2d_cpu_bounded(scene.triangles, scene.colours, image);
+        raster::rasterize_triangles_rgba_2d_cpu_bounded(scene, image);
     } else if (mode == "opengl") {
-        raster::rasterize_triangles_rgba_2d_opengl(scene.triangles, scene.colours, image);
+        raster::rasterize_triangles_rgba_2d_opengl(scene, image);
     } else {
-        raster::rasterize_triangles_rgba_2d_cpu_pointwise(scene.triangles, scene.colours, image);
+        raster::rasterize_triangles_rgba_2d_cpu_pointwise(scene, image);
     }
 
     io::save_png_rgba(output_filename, image);
