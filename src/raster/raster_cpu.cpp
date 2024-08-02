@@ -1,4 +1,5 @@
 #include "raster/rasterization.h"
+#include "raster/composit.h"
 
 #include "geometry/barycentric.h"
 
@@ -16,7 +17,7 @@ namespace raster {
                     auto tri = scene.triangles[i];
                     auto bary = geometry2d::barycentric_coordinates({u, v}, tri);
                     if (bary.u >= 0 && bary.v >= 0 && bary.w >= 0) {
-                        image.data[x + y * image.width] = scene.colours[i];
+                        image.data[x + y * image.width] = composit_over_straight_255(image.data[x + y * image.width], scene.colours[i]);
                     }
                 }
             }
@@ -40,7 +41,7 @@ namespace raster {
                     float v = (y + 0.5f) / (float)image.height;
                     auto bary = geometry2d::barycentric_coordinates({u, v}, tri);
                     if (bary.u >= 0 && bary.v >= 0 && bary.w >= 0) {
-                        image.data[x + y * image.width] = scene.colours[i];
+                        image.data[x + y * image.width] = composit_over_straight_255(image.data[x + y * image.width], scene.colours[i]);
                     }
                 }
             }
