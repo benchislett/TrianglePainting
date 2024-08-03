@@ -14,5 +14,6 @@ namespace raster {
 
     void rasterize_triangles_rgba_2d_cpu_pointwise(const RasterScene& scene, io::Image<io::RGBA255>& image);
     void rasterize_triangles_rgba_2d_cpu_bounded(const RasterScene& scene, io::Image<io::RGBA255>& image);
+    void rasterize_triangles_rgba_2d_cpu_integer(const RasterScene& scene, io::Image<io::RGBA255>& image);
     void rasterize_triangles_rgba_2d_opengl(const RasterScene& scene, io::Image<io::RGBA255>& image);
 };

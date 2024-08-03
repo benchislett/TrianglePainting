@@ -76,6 +76,8 @@ int main(int argc, char** argv)
         raster::rasterize_triangles_rgba_2d_cpu_bounded(scene, image);
     } else if (mode == "opengl") {
         raster::rasterize_triangles_rgba_2d_opengl(scene, image);
+    } else if (mode == "integer") {
+        raster::rasterize_triangles_rgba_2d_cpu_integer(scene, image);
     } else {
         raster::rasterize_triangles_rgba_2d_cpu_pointwise(scene, image);
     }
