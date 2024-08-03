@@ -3,8 +3,12 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 
-int main() {
+int main(int argc, char** argv) {
     int num_triangles = 50;
+
+    if (argc > 1) {
+        num_triangles = std::atoi(argv[1]);
+    }
 
     auto json = nlohmann::json();
 
