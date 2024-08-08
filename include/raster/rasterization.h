@@ -1,6 +1,7 @@
 #pragma once
 
 #include "geometry/types.h"
+#include "geometry/barycentric.h"
 #include "io/image.h"
 #include "raster/composit.h"
 
@@ -118,7 +119,7 @@ namespace raster {
      * Credit for the implementation goes to http://alienryderflex.com/polygon_fill/
      */
     template<class Shader>
-    void rasterize_polygon(const std::vector<geometry2d::point>& polygon, int width, int height, Shader& shader) {
+    void rasterize_polygon_scanline(const std::vector<geometry2d::point>& polygon, int width, int height, Shader& shader) {
         constexpr int MAX_POLY_CORNERS = 10;
 
         int  nodes, nodeX[MAX_POLY_CORNERS], pixelX, pixelY, i, j, swap ;
@@ -158,28 +159,60 @@ namespace raster {
                 for (pixelX=nodeX[i]; pixelX<nodeX[i+1]; pixelX++) shader.render_pixel(pixelX,pixelY); }}}
     }
 
-    inline void rasterize_triangles_using_generic_shader(const RasterScene& scene, io::Image<io::RGBA255>& image) {
-        struct Shader {
-            const RasterScene& scene;
-            io::Image<io::RGBA255>& image;
-            int triangle_index;
+    /* Modes for performing 2D triangle rasterization
+     * - Bounded: see `rasterize_triangle_bounded`
+     * - Integer: see `rasterize_triangle_integer`
+     * - ScanlinePolygon: see `rasterize_polygon_scanline`
+     */
+    enum class TriangleRasterizationMode {
+        Bounded,
+        Integer,
+        ScanlinePolygon,
+        Default = Bounded
+    };
 
-            Shader(const RasterScene& scene, io::Image<io::RGBA255>& image, int triangle_index) : scene(scene), image(image), triangle_index(triangle_index) {}
-
-            void render_pixel(int x, int y) {
-                image.data[x + y * image.width] = composit_over_straight_255(image.data[x + y * image.width], scene.colours[triangle_index]);
-            }
-        };
-
-        std::fill(image.data.begin(), image.data.end(), scene.background_colour);
-        for (int i = 0; i < scene.triangles.size(); i++) {
-            Shader tmp(scene, image, i);
-            // rasterize_triangle<Shader>(scene.triangles[i], image.width, image.height, tmp);
-
-            std::vector<geometry2d::point> points_rescaled = {geometry2d::point{scene.triangles[i].a.x * image.width, scene.triangles[i].a.y * image.height},
-                                                              geometry2d::point{scene.triangles[i].b.x * image.width, scene.triangles[i].b.y * image.height},
-                                                              geometry2d::point{scene.triangles[i].c.x * image.width, scene.triangles[i].c.y * image.height}};
-            rasterize_polygon(points_rescaled, image.width, image.height, tmp);
+    /* Generic 2D Triangle Rasterization 
+     * Given an arbitrary shader object, call `shader.render_pixel(x, y)` for each pixel in the `triangle`
+     * assuming an image domain of size `width` x `height`.
+     * See: `TriangleRasterizationMode` for available modes.
+     */
+    template<class Shader, TriangleRasterizationMode mode = TriangleRasterizationMode::Default>
+    void rasterize_triangle(const geometry2d::triangle& triangle, int width, int height, Shader& shader) {
+        if constexpr (mode == TriangleRasterizationMode::Bounded) {
+            rasterize_triangle_bounded(triangle, width, height, shader);
+        } else if constexpr (mode == TriangleRasterizationMode::Integer) {
+            rasterize_triangle_integer(triangle, width, height, shader);
+        } else if constexpr (mode == TriangleRasterizationMode::ScanlinePolygon) {
+            std::vector<geometry2d::point> points = {triangle.a, triangle.b, triangle.c};
+            rasterize_polygon_scanline(points, width, height, shader);
+        } else {
+            assert (0);
         }
+    }
+
+    /* Standard rasterization shader. Holds a reference to an image and a fixed foreground colour.
+     * When a pixel is drawn, composit that pixel over the background image.*/
+    struct CompositOverImageShader {
+        io::Image<io::RGBA255>& image;
+        const io::RGBA255& colour;
+
+        CompositOverImageShader(io::Image<io::RGBA255>& image, const io::RGBA255& colour) : image(image), colour(colour) {}
+
+        void render_pixel(int x, int y) {
+            image.data[x + y * image.width] = composit_over_straight_255(image.data[x + y * image.width], colour);
+        }
+    };
+
+    /* 2D Triangle Rasterization onto a given image. See `TriangleRasterizationMode` to select an implementation if desired. */
+    template<TriangleRasterizationMode mode = TriangleRasterizationMode::Default>
+    void rasterize_triangle_onto_image(const geometry2d::triangle& triangle, const io::RGBA255& colour, io::Image<io::RGBA255>& image) {
+        CompositOverImageShader shader(image, colour);
+        rasterize_triangle<CompositOverImageShader, mode>(triangle, image.width, image.height, shader);
+    }
+
+    /* 2D Polygon Rasterization onto a given image. See `rasterize_polygon_scanline` */
+    void rasterize_polygon_onto_image(const std::vector<geometry2d::point>& polygon, const io::RGBA255& colour, io::Image<io::RGBA255>& image) {
+        CompositOverImageShader shader(image, colour);
+        rasterize_polygon_scanline(polygon, image.width, image.height, shader);
     }
 };
