@@ -1,7 +1,7 @@
 
 #include <random>
-#include <nlohmann/json.hpp>
-#include <fstream>
+
+#include "triangle_image_state.h"
 
 int main(int argc, char** argv) {
     int num_triangles = 50;
@@ -10,27 +10,24 @@ int main(int argc, char** argv) {
         num_triangles = std::atoi(argv[1]);
     }
 
-    auto json = nlohmann::json();
-
     // init random generator
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<float> dis(0.0, 1.0);
 
-    json["triangles"] = nlohmann::json::array();
+    std::vector<geometry2d::triangle> triangles;
+    std::vector<io::RGBA255> colours;
+    io::RGBA255 background_colour{0, 0, 0, 255};
     for (int i = 0; i < num_triangles; i++) {
-        // random vertices and random colour
-        json["triangles"].push_back({
-            {"vertices", {
-                {dis(gen), dis(gen)},
-                {dis(gen), dis(gen)},
-                {dis(gen), dis(gen)}
-            }},
-            {"colour", {dis(gen), dis(gen), dis(gen), 0.5f}}
+        triangles.push_back({
+            {dis(gen), dis(gen)},
+            {dis(gen), dis(gen)},
+            {dis(gen), dis(gen)}
         });
+        io::RGBA01 colour = {dis(gen), dis(gen), dis(gen), 0.5f};
+        colours.push_back(io::to_rgba255(colour));
     }
-    json["background"] = {0.0f, 0.0f, 0.0f, 1.0f};
 
-    std::ofstream out("random_triangles.json");
-    out << json.dump(4) << std::endl;
+    RasterScene scene{triangles, colours, background_colour};
+    save_json("random_triangles.json", scene);
 }
