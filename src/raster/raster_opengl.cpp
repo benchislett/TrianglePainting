@@ -52,7 +52,11 @@ static void init() {
 	GLuint VertexShaderID = glCreateShader(GL_VERTEX_SHADER);
 	GLuint FragmentShaderID = glCreateShader(GL_FRAGMENT_SHADER);
 
-	// Source code
+	// Shader source
+    /* Note on viewport: the code considers (0, 0) the top-left origin and has y grow downwards.
+     * This contradicts the typical arrangement of the OpenGL Viewport.
+     * Instead of flipping the axis when drawing, we leave it unchanged because glReadPixels also
+     * returns the opposite row-order that we expect, so both cancel out and correct the vertical flip. */
 	std::string VertexShaderCode = R"(#version 330 core 
 layout(location = 0) in vec2 vertexPosition;
 layout(location = 1) in vec4 rgba;
@@ -131,7 +135,7 @@ void main() {
 
 namespace raster {
 
-    void rasterize_triangles_rgba_2d_opengl(const raster::RasterScene &scene, io::Image<io::RGBA255>& image) {
+    void rasterize_triangles_rgba_2d_opengl(const std::vector<geometry2d::triangle>& triangles, const std::vector<io::RGBA255>& colours, io::RGBA255 background_colour, io::Image<io::RGBA255>& image) {
         init();
 
         glViewport(0, 0, image.width, image.height);
@@ -155,22 +159,24 @@ namespace raster {
         glGenVertexArrays(1, &VertexArrayID);
         glBindVertexArray(VertexArrayID);
 
-        // enable blending
+        /* Alpha Blending
+         * Blending the source and destination colours based on the source alpha value
+         * As is standard for "over" compositing with non-premultiplied alpha
+         * And determining the new alpha value according to the usual case
+         * See https://en.wikipedia.org/wiki/Alpha_compositing
+         * And https://registry.khronos.org/OpenGL-Refpages/gl4/html/glBlendFuncSeparate.xhtml
+         */
         glEnable(GL_BLEND);
-        // glBlendEquation(GL_FUNC_ADD);
-        // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-        // glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
-        io::RGBA01 background = io::to_rgba01(scene.background_colour);
+        io::RGBA01 background = io::to_rgba01(background_colour);
         glClearColor(background.r, background.g, background.b, background.a);
-        // glClearColor(0, 0, 0, 0);
         glClear( GL_COLOR_BUFFER_BIT );
 
         std::vector<float> vertex_buffer_data;
-        for (int i = 0; i < scene.triangles.size(); i++) {
-            auto tri = scene.triangles[i];
-            io::RGBA01 colour = io::to_rgba01(scene.colours[i]);
+        for (int i = 0; i < triangles.size(); i++) {
+            auto tri = triangles[i];
+            io::RGBA01 colour = io::to_rgba01(colours[i]);
             for (int j = 0; j < 3; j++) {
                 vertex_buffer_data.push_back(tri[j].x);
                 vertex_buffer_data.push_back(tri[j].y);
@@ -185,8 +191,6 @@ namespace raster {
         glGenBuffers(1, &vertexbuffer);
         glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
         glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertex_buffer_data.size(), vertex_buffer_data.data(), GL_STATIC_DRAW);
-
-        // glDisable(GL_DEPTH_TEST); 
 
         // Use the shader
         glUseProgram(programid);
@@ -215,7 +219,7 @@ namespace raster {
         );
 
         // Draw the triangles
-        glDrawArrays(GL_TRIANGLES, 0, 3 * scene.triangles.size());
+        glDrawArrays(GL_TRIANGLES, 0, 3 * triangles.size());
 
         glDisableVertexAttribArray(0);
 
@@ -226,27 +230,6 @@ namespace raster {
         glReadBuffer(GL_BACK_LEFT);
 
         glReadPixels(0, 0, image.width, image.height, GL_RGBA, GL_UNSIGNED_BYTE, (unsigned char*)image.data.data());
-
-        // background = io::RGBA01{1, 1, 1, 1};
-        // for (auto& pix : image.data) {
-        //     // blend the image with the background
-        //     io::RGBA01 colour = io::to_rgba01(pix);
-        //     float alpha = colour.a + (1.f - colour.a) * background.a;
-        //     if (colour.a < 0.0001) continue;
-        //     pix = io::to_rgba255(io::RGBA01{
-        //         (colour.r * colour.a + background.r * (1.f - colour.a)) / colour.a,
-        //         (colour.g * colour.a + background.g * (1.f - colour.a)) / colour.a,
-        //         (colour.b * colour.a + background.b * (1.f - colour.a)) / colour.a,
-        //         alpha
-        //     });
-        // }
-
-        // mirror the image vertically
-        // for (int y = 0; y < image.height / 2; y++) {
-        //     for (int x = 0; x < image.width; x++) {
-        //         std::swap(image.data[y * image.width + x], image.data[(image.height - 1 - y) * image.width + x]);
-        //     }
-        // }
 
         // Cleanup VBO
         glDeleteBuffers(1, &vertexbuffer);
