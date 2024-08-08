@@ -96,6 +96,7 @@ gtest_discover_tests(Test)
 # set up experiments
 # create an executable for each .cpp source file in folder "experiments"
 file(GLOB_RECURSE EXPERIMENTS "experiments/*.cpp")
+file(GLOB_RECURSE EXPERIMENT_HEADERS "experiments/*.h")
 
 if(USE_CUDA)
   file(GLOB_RECURSE CUDA_EXPERIMENTS "experiments/*.cu")
@@ -104,6 +105,7 @@ endif()
 
 foreach(EXPERIMENT ${EXPERIMENTS})
   get_filename_component(EXPERIMENT_NAME ${EXPERIMENT} NAME_WE)
-  add_executable(${EXPERIMENT_NAME} ${EXPERIMENT})
+  add_executable(${EXPERIMENT_NAME} ${EXPERIMENT} ${EXPERIMENT_HEADERS})
   target_link_libraries(${EXPERIMENT_NAME} Science)
+  target_include_directories(${EXPERIMENT_NAME} PUBLIC experiments)
 endforeach()
