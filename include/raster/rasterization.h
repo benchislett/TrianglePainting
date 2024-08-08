@@ -5,6 +5,7 @@
 #include "raster/composit.h"
 
 #include <vector>
+#include <cassert>
 
 namespace raster {
 
