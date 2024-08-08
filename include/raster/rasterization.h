@@ -32,8 +32,8 @@ namespace raster {
 
         for (int x = lower_x; x <= upper_x; x++) {
             for (int y = lower_y; y <= upper_y; y++) {
-                float u = (x + 0.5f) / (float)image.width;
-                float v = (y + 0.5f) / (float)image.height;
+                float u = (x + 0.5f) / (float)width;
+                float v = (y + 0.5f) / (float)height;
                 auto bary = geometry2d::barycentric_coordinates({u, v}, triangle);
                 if (bary.u >= 0 && bary.v >= 0 && bary.w >= 0) {
                     shader.render_pixel(x, y);
