@@ -131,10 +131,14 @@ namespace raster {
             //  Build a list of nodes.
             nodes=0; j=polyCorners-1;
             for (i=0; i<polyCorners; i++) {
-                if (polygon[i].y<(double) pixelY && polygon[j].y>=(double) pixelY
-                ||  polygon[j].y<(double) pixelY && polygon[i].y>=(double) pixelY) {
-                nodeX[nodes++]=(int) (polygon[i].x+(pixelY-polygon[i].y)/(polygon[j].y-polygon[i].y)
-                *(polygon[j].x-polygon[i].x)); }
+                float p_i_x = polygon[i].x * width;
+                float p_j_x = polygon[j].x * width;
+                float p_i_y = polygon[i].y * height;
+                float p_j_y = polygon[j].y * height;
+                if (p_i_y<(float) pixelY && p_j_y>=(float) pixelY
+                ||  p_j_y<(float) pixelY && p_i_y>=(float) pixelY) {
+                nodeX[nodes++]=(int) (p_i_x+(pixelY-p_i_y)/(p_j_y-p_i_y)
+                *(p_j_x-p_i_x)); }
                 j=i; }
 
             //  Sort the nodes, via a simple “Bubble” sort.
