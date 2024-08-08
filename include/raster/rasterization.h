@@ -211,7 +211,7 @@ namespace raster {
     }
 
     /* 2D Polygon Rasterization onto a given image. See `rasterize_polygon_scanline` */
-    void rasterize_polygon_onto_image(const std::vector<geometry2d::point>& polygon, const io::RGBA255& colour, io::Image<io::RGBA255>& image) {
+    inline void rasterize_polygon_onto_image(const std::vector<geometry2d::point>& polygon, const io::RGBA255& colour, io::Image<io::RGBA255>& image) {
         CompositOverImageShader shader(image, colour);
         rasterize_polygon_scanline(polygon, image.width, image.height, shader);
     }
