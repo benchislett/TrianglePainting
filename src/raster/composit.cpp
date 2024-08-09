@@ -15,7 +15,19 @@ namespace raster {
             return background;
         }
 
-        io::RGBA01 out = composit_over_premultiplied_01(background, foreground);
+        io::RGBA01 background_premultiplied = io::RGBA01{
+            background.r * background.a,
+            background.g * background.a,
+            background.b * background.a,
+            background.a
+        };
+        io::RGBA01 foreground_premultiplied = io::RGBA01{
+            foreground.r * foreground.a,
+            foreground.g * foreground.a,
+            foreground.b * foreground.a,
+            foreground.a
+        };
+        io::RGBA01 out = composit_over_premultiplied_01(background_premultiplied, foreground_premultiplied);
         return io::RGBA01{
             out.r / out.a,
             out.g / out.a,
