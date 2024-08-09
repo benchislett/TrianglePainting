@@ -278,7 +278,10 @@ int main() {
         }
 
         if (i % tick_frequency == 0) {
-            printf("Iteration %d/%d\n", i, total_iterations);
+            double accuracy = 1.0 - (double)current_fitness / (255.0 * 255.0 * 3.0 * target.width * target.height);
+            printf("Iteration %d/%d | Loss %llu (%.4f%%)\n", i, total_iterations, current_fitness, float(accuracy));
+            io::Image<io::RGBA255> result = render_drawing(d, target.width, target.height);
+            io::save_png_rgba("result.png", result);
         }
     }
 
