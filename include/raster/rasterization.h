@@ -215,4 +215,102 @@ namespace raster {
         CompositOverImageShader shader(image, colour);
         rasterize_polygon_scanline(polygon, image.width, image.height, shader);
     }
+
+    struct OptimalColourShader {
+        long long int ab_r = 0;
+        long long int ab_g = 0;
+        long long int ab_b = 0;
+        long long int a2 = 0;
+        long long int b2 = 0;
+
+        long long int error_delta = 0;
+
+        unsigned char current_alpha;
+
+        const io::Image<io::RGBA255>& target;
+        const io::Image<io::RGBA255>& foreground;
+        const io::Image<io::RGBA255>& background;
+        const io::Image<int> error_mask;
+
+        OptimalColourShader(unsigned char alpha, const io::Image<io::RGBA255>& target, const io::Image<io::RGBA255>& foreground, const io::Image<io::RGBA255>& background, const io::Image<int>& error_mask) 
+            : current_alpha(alpha), target(target), foreground(foreground), background(background), error_mask(error_mask) {}
+
+        void render_pixel(int x, int y) {
+            io::RGBA255 target_pixel = target.data[y * target.width + x];
+            io::RGBA255 background_pixel = background.data[y * target.width + x];
+            io::RGBA255 foreground_pixel = foreground.data[y * target.width + x];
+
+#define INT_MULT(a,b,t) ( (t) = (a) * (b) + 0x80, ( ( ( (t)>>8 ) + (t) )>>8 ) )
+#define INT_LERP(p, q, a, t) ( (p) + INT_MULT( a, ( (q) - (p) ), t ) )
+
+            long long int a_0, b_0_r, b_0_g, b_0_b;
+            int t1, t2, t3;
+
+            if (foreground_pixel.a == 0) {
+                // a_0 = current_alpha;
+                // b_0_r = int(target_pixel.r) - int(background_pixel.r) + INT_MULT(background_pixel.r, current_alpha, t1);
+                // b_0_g = int(target_pixel.g) - int(background_pixel.g) + INT_MULT(background_pixel.g, current_alpha, t1);
+                // b_0_b = int(target_pixel.b) - int(background_pixel.b) + INT_MULT(background_pixel.b, current_alpha, t1);
+            } else {
+                a_0 = current_alpha * (255 - foreground_pixel.a); // NEEDS 1 DIVISION
+
+                long long int tmp_r = background_pixel.r * (255 - current_alpha); // NEEDS 1 DIVISION
+                long long int tmp_g = background_pixel.g * (255 - current_alpha); // NEEDS 1 DIVISION
+                long long int tmp_b = background_pixel.b * (255 - current_alpha); // NEEDS 1 DIVISION
+
+                tmp_r = tmp_r * (255 - foreground_pixel.a); // NEEDS 2 DIVISIONS
+                tmp_g = tmp_g * (255 - foreground_pixel.a); // NEEDS 2 DIVISIONS
+                tmp_b = tmp_b * (255 - foreground_pixel.a); // NEEDS 2 DIVISIONS
+
+                b_0_r = 255 * (255 * target_pixel.r - foreground_pixel.r * foreground_pixel.a) - tmp_r; // NEEDS 2 DIVISIONS
+                b_0_g = 255 * (255 * target_pixel.g - foreground_pixel.g * foreground_pixel.a) - tmp_g; // NEEDS 2 DIVISIONS
+                b_0_b = 255 * (255 * target_pixel.b - foreground_pixel.b * foreground_pixel.a) - tmp_b; // NEEDS 2 DIVISIONS
+
+                // int a_0_old = INT_MULT(current_alpha, (255 - foreground_pixel.a), t1);
+                // a_0 = int(current_alpha) - INT_MULT(current_alpha, foreground_pixel.a, t1);
+
+                // int tmp_r = int(background_pixel.r) - INT_MULT(background_pixel.r, current_alpha, t1);
+                // int tmp_g = int(background_pixel.g) - INT_MULT(background_pixel.g, current_alpha, t1);
+                // int tmp_b = int(background_pixel.b) - INT_MULT(background_pixel.b, current_alpha, t1);
+
+                // b_0_r = int(target_pixel.r) - INT_LERP(tmp_r, foreground_pixel.r, foreground_pixel.a, t2);
+                // b_0_g = int(target_pixel.g) - INT_LERP(tmp_g, foreground_pixel.g, foreground_pixel.a, t2);
+                // b_0_b = int(target_pixel.b) - INT_LERP(tmp_b, foreground_pixel.b, foreground_pixel.a, t2);
+                // int b_0_r_old = int(target_pixel.r) - (INT_MULT(foreground_pixel.a, foreground_pixel.r, t1) + INT_MULT((255 - foreground_pixel.a), INT_MULT(background_pixel.r, (255 - current_alpha), t2), t3));
+                // int b_0_g_old = int(target_pixel.g) - (INT_MULT(foreground_pixel.a, foreground_pixel.g, t1) + INT_MULT((255 - foreground_pixel.a), INT_MULT(background_pixel.g, (255 - current_alpha), t2), t3));
+                // int b_0_b_old = int(target_pixel.b) - (INT_MULT(foreground_pixel.a, foreground_pixel.b, t1) + INT_MULT((255 - foreground_pixel.a), INT_MULT(background_pixel.b, (255 - current_alpha), t2), t3));
+                // assert (a_0 == a_0_old);
+                // assert(b_0_r == b_0_r_old);
+                // assert(b_0_g == b_0_g_old);
+                // assert(b_0_b == b_0_b_old);
+            }
+
+            ab_r += a_0 * b_0_r; // NEEDS 3 DIVISIONS
+            ab_g += a_0 * b_0_g; // NEEDS 3 DIVISIONS
+            ab_b += a_0 * b_0_b; // NEEDS 3 DIVISIONS
+            a2 += a_0 * a_0; // NEEDS 2 DIVISIONS
+            b2 += b_0_r * b_0_r + b_0_g * b_0_g + b_0_b * b_0_b; // NEEDS 4 DIVISIONS
+
+            error_delta -= error_mask.data[y * target.width + x];
+        }
+
+        std::pair<io::RGBA255, long long int> final_colour_and_error() const {
+            if (a2 == 0) {
+                return {io::RGBA255{0, 0, 0, 0}, 0};
+            }
+
+            unsigned char r = std::min(255, std::max(0, int(ab_r / a2)));
+            unsigned char g = std::min(255, std::max(0, int(ab_g / a2)));
+            unsigned char b = std::min(255, std::max(0, int(ab_b / a2)));
+            auto out_colour = io::RGBA255{r, g, b, current_alpha};
+
+            long long int error = error_delta + (b2 / (255LL * 255 * 255 * 255));
+            error += ((int(r) * int(r) + int(g) * int(g) + int(b) * int(b)) * a2) / (255LL * 255 * 255 * 255);
+            error -= (2 * (int(r) * ab_r + int(g) * ab_g + int(b) * ab_b)) / (255LL * 255 * 255 * 255);
+
+            // printf("AB_R: %lld | A2: %lld | B2: %lld | Error: %lld\n", ab_r, a2, b2, error);
+
+            return {out_colour, error};
+        }
+    };
 };
