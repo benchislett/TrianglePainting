@@ -313,4 +313,30 @@ namespace raster {
             return {out_colour, error};
         }
     };
+
+    struct DrawLossFGShader {
+        const io::Image<io::RGBA255>& target;
+        const io::Image<io::RGBA255>& foreground;
+        const io::Image<io::RGBA255>& background;
+        const io::Image<int>& error_mask;
+
+        const io::RGBA255& colour;
+
+        long long int total_error = 0;
+
+        DrawLossFGShader(const io::Image<io::RGBA255>& target, const io::Image<io::RGBA255>& foreground, const io::Image<io::RGBA255>& background, const io::RGBA255& colour, const io::Image<int>& error_mask) 
+            : target(target), foreground(foreground), background(background), colour(colour), error_mask(error_mask) {}
+
+        void render_pixel(int x, int y) {
+            io::RGBA255 target_pixel = target.data[y * target.width + x];
+            io::RGBA255 background_pixel = background.data[y * target.width + x];
+            io::RGBA255 foreground_pixel = foreground.data[y * target.width + x];
+
+            auto middle_pixel = composit_over_straight_255(background_pixel, colour);
+            auto final_pixel = composit_over_straight_255(middle_pixel, foreground_pixel);
+
+            total_error += l2_difference(target_pixel, final_pixel);
+            total_error -= error_mask.data[target.width * y + x];
+        }
+    };
 };
