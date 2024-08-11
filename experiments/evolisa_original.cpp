@@ -12,7 +12,7 @@
 struct Settings {
     static constexpr int addPolygonMutationRate = 700;
     static constexpr int alphaMutationRate = 1500;
-    static constexpr int alphaRangeMax = 60;
+    static constexpr int alphaRangeMax = 120;
     static constexpr int alphaRangeMin = 30;
     static constexpr int blueMutationRate = 1500;
     static constexpr int blueRangeMax = 255;
@@ -73,7 +73,7 @@ auto random_point() {
     return geometry2d::point{randf01(), randf01()};
 }
 
-void mutate_point(geometry2d::point& p) {
+bool mutate_point(geometry2d::point& p) {
     if (one_in_n(Settings::movePointMaxMutationRate)) {
         p = random_point();
     } else if (one_in_n(Settings::movePointMidMutationRate)) {
@@ -82,7 +82,10 @@ void mutate_point(geometry2d::point& p) {
     } else if (one_in_n(Settings::movePointMinMutationRate)) {
         p.x = std::min(1.0f, std::max(0.0f, p.x + randf_in_range(-Settings::movePointRangeMin, Settings::movePointRangeMin)));
         p.y = std::min(1.0f, std::max(0.0f, p.y + randf_in_range(-Settings::movePointRangeMin, Settings::movePointRangeMin)));
+    } else {
+        return false;
     }
+    return true;
 }
 
 /* Colour Utilities */
@@ -94,19 +97,25 @@ auto random_colour() {
                        (unsigned char)randint_in_range(Settings::alphaRangeMin, Settings::alphaRangeMax)};
 }
 
-void mutate_colour(io::RGBA255& c) {
+bool mutate_colour(io::RGBA255& c) {
+    bool mutated = false;
     if (one_in_n(Settings::redMutationRate)) {
         c.r = (unsigned char)randint_in_range(Settings::redRangeMin, Settings::redRangeMax);
+        mutated = true;
     }
     if (one_in_n(Settings::greenMutationRate)) {
         c.g = (unsigned char)randint_in_range(Settings::greenRangeMin, Settings::greenRangeMax);
+        mutated = true;
     }
     if (one_in_n(Settings::blueMutationRate)) {
         c.b = (unsigned char)randint_in_range(Settings::blueRangeMin, Settings::blueRangeMax);
+        mutated = true;
     }
     if (one_in_n(Settings::alphaMutationRate)) {
         c.a = (unsigned char)randint_in_range(Settings::alphaRangeMin, Settings::alphaRangeMax);
+        mutated = true;
     }
+    return mutated;
 }
 
 /* Polygon Utilities */
@@ -144,13 +153,15 @@ auto random_polygon() {
     return p;
 }
 
-void remove_point(const Drawing& d, Polygon& p) {
+bool remove_point(const Drawing& d, Polygon& p) {
     if (p.vertices.size() > Settings::pointsPerPolygonMin && count_points(d) > Settings::pointsMin) {
         p.vertices.erase(p.vertices.begin() + randint_in_range(0, p.vertices.size() - 1));
+        return true;
     }
+    return false;
 }
 
-void add_point(const Drawing& d, Polygon& p) {
+bool add_point(const Drawing& d, Polygon& p) {
     if (p.vertices.size() < Settings::pointsPerPolygonMax && count_points(d) < Settings::pointsMax) {
         int idx = randint_in_range(1, p.vertices.size() - 1);
         const auto& prev = p.vertices[idx - 1];
@@ -158,47 +169,57 @@ void add_point(const Drawing& d, Polygon& p) {
 
         auto new_point = geometry2d::point{(prev.x + curr.x) / 2.0f, (prev.y + curr.y) / 2.0f};
         p.vertices.insert(p.vertices.begin() + idx, new_point);
+        return true;
     }
+    return false;
 }
 
-void mutate_polygon(const Drawing& d, Polygon& p) {
+bool mutate_polygon(const Drawing& d, Polygon& p) {
+    bool mutated = false;
     if (one_in_n(Settings::addPointMutationRate)) {
-        add_point(d, p);
+        mutated = mutated || add_point(d, p);
     }
     if (one_in_n(Settings::removePointMutationRate)) {
-        remove_point(d, p);
+        mutated = mutated || remove_point(d, p);
     }
-    mutate_colour(p.colour);
+    mutated = mutated || mutate_colour(p.colour);
     for (auto& point : p.vertices) {
-        mutate_point(point);
+        mutated = mutated || mutate_point(point);
     }
+    return mutated;
 }
 
 /* Simulation Utilities */
 
-void add_polygon(Drawing& d) {
+bool add_polygon(Drawing& d) {
     if (d.polygons.size() < Settings::polygonsMax) {
         auto p = random_polygon();
         int position = randint_in_range(0, d.polygons.size());
         d.polygons.insert(d.polygons.begin() + position, p);
+        return true;
     }
+    return false;
 }
 
-void remove_polygon(Drawing& d) {
+bool remove_polygon(Drawing& d) {
     if (d.polygons.size() > Settings::polygonsMin) {
         int index = randint_in_range(0, d.polygons.size() - 1);
         d.polygons.erase(d.polygons.begin() + index);
+        return true;
     }
+    return false;
 }
 
-void move_polygon(Drawing& d) {
+bool move_polygon(Drawing& d) {
     if (d.polygons.size() > 1) {
         int idx_1 = randint_in_range(0, d.polygons.size() - 1);
         auto polygon = d.polygons[idx_1];
         d.polygons.erase(d.polygons.begin() + idx_1);
         int idx_dest = randint_in_range(0, d.polygons.size()); // note that the size has changed due to the erasure
         d.polygons.insert(d.polygons.begin() + idx_dest, polygon);
+        return true;
     }
+    return false;
 }
 
 auto new_drawing() {
@@ -209,19 +230,21 @@ auto new_drawing() {
     return d;
 }
 
-void mutate_drawing(Drawing& d) {
+bool mutate_drawing(Drawing& d) {
+    bool mutated = false;
     if (one_in_n(Settings::addPolygonMutationRate)) {
-        add_polygon(d);
+        mutated = mutated || add_polygon(d);
     }
     if (one_in_n(Settings::removePolygonMutationRate)) {
-        remove_polygon(d);
+        mutated = mutated || remove_polygon(d);
     }
     if (one_in_n(Settings::movePolygonMutationRate)) {
-        move_polygon(d);
+        mutated = mutated || move_polygon(d);
     }
     for (auto& p : d.polygons) {
-        mutate_polygon(d, p);
+        mutated = mutated || mutate_polygon(d, p);
     }
+    return mutated;
 }
 
 io::Image<io::RGBA255> render_drawing(const Drawing& d, int width, int height) {
@@ -261,20 +284,22 @@ int main() {
     Drawing d = new_drawing();
 
     unsigned long long int current_fitness = compute_fitness(d, target);
-    int total_iterations = 1000000;
+    int total_iterations = 10000000;
     int accepted_mutations = 0;
 
-    int total_tick_messages = 10;
+    int total_tick_messages = 100;
     int tick_frequency = total_iterations / total_tick_messages + (total_iterations % total_tick_messages != 0);
 
     for (int i = 0; i < total_iterations; i++) {
         Drawing d2 = d;
-        mutate_drawing(d2);
-        unsigned long long int new_fitness = compute_fitness(d2, target);
-        if (new_fitness < current_fitness) {
-            d = d2;
-            current_fitness = new_fitness;
-            accepted_mutations++;
+        bool dirty = mutate_drawing(d2);
+        if (dirty) {
+            unsigned long long int new_fitness = compute_fitness(d2, target);
+            if (new_fitness < current_fitness) {
+                d = d2;
+                current_fitness = new_fitness;
+                accepted_mutations++;
+            }
         }
 
         if (i % tick_frequency == 0) {
