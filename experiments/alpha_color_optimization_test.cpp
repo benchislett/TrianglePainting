@@ -8,17 +8,6 @@
 #include <random>
 #include <algorithm>
 
-
-template<typename T>
-io::Image<T> blank_image(int width, int height, T value) {
-    io::Image<T> image;
-    image.width = width;
-    image.height = height;
-    image.data.resize(width * height);
-    std::fill(image.data.begin(), image.data.end(), value);
-    return image;
-}
-
 long long int image_delta(const io::Image<io::RGBA255>& a, const io::Image<io::RGBA255>& b) {
     long long int delta = 0;
     for (int i = 0; i < a.width; i++) {
@@ -33,7 +22,7 @@ long long int image_delta(const io::Image<io::RGBA255>& a, const io::Image<io::R
 }
 
 io::Image<int> image_delta_mask(const io::Image<io::RGBA255>& a, const io::Image<io::RGBA255>& b) {
-    auto mask = blank_image<int>(a.width, a.height, 0);
+    auto mask = io::Image<int>(a.width, a.height, 0);
     for (int i = 0; i < a.width; i++) {
         for (int j = 0; j < a.height; j++) {
             int delta_r = a.data[i * a.width + j].r - b.data[i * b.width + j].r;
@@ -46,19 +35,21 @@ io::Image<int> image_delta_mask(const io::Image<io::RGBA255>& a, const io::Image
 }
 
 int main() {
-    int width = 1;
-    io::Image<io::RGBA255> background = blank_image(width, width, io::RGBA255{0, 0, 0, 255});
-    io::Image<io::RGBA255> foreground = blank_image(width, width, io::RGBA255{0, 0, 0, 128});
+    io::Image<io::RGBA255> target = io::load_png_rgba("target.png");
 
-    io::Image<io::RGBA255> target = blank_image(width, width, io::RGBA255{192, 0, 0, 255});
+    int width = target.width;
+    assert (width == target.height);
 
-    unsigned char alpha = 94;
+    io::Image<io::RGBA255> background = io::Image<io::RGBA255>(width, width, io::RGBA255{0, 0, 16, 255});
+    io::Image<io::RGBA255> foreground = io::Image<io::RGBA255>(width, width, io::RGBA255{0, 0, 130, 16});
+
+    unsigned char alpha = 16;
 
     auto initial_colour = io::RGBA255{100, 100, 50, alpha};
     auto initial_composited_pixel = raster::composit_over_straight_255(raster::composit_over_straight_255(background.data[0], initial_colour), foreground.data[0]);
 
-    long long int initial_error = image_delta(target, blank_image(width, width, initial_composited_pixel));
-    auto initial_error_mask = image_delta_mask(target, blank_image(width, width, initial_composited_pixel));
+    long long int initial_error = image_delta(target, io::Image<io::RGBA255>(width, width, initial_composited_pixel));
+    auto initial_error_mask = image_delta_mask(target, io::Image<io::RGBA255>(width, width, initial_composited_pixel));
 
     raster::OptimalColourShader shader(alpha, target, foreground, background, initial_error_mask);
     for (int i = 0; i < width; i++) {
@@ -70,8 +61,8 @@ int main() {
     auto [final_colour, error_delta] = shader.final_colour_and_error();
     auto final_composited_pixel = raster::composit_over_straight_255(raster::composit_over_straight_255(background.data[0], final_colour), foreground.data[0]);
 
-    long long int new_error = image_delta(target, blank_image(width, width, final_composited_pixel));
-    auto new_error_mask = image_delta_mask(target, blank_image(width, width, final_composited_pixel));
+    long long int new_error = image_delta(target, io::Image<io::RGBA255>(width, width, final_composited_pixel));
+    auto new_error_mask = image_delta_mask(target, io::Image<io::RGBA255>(width, width, final_composited_pixel));
 
     printf("Initial error: %lld\n", initial_error);
     printf("Final error: %lld | Estimated at %lld (Delta %lld)\n", new_error, initial_error + error_delta, error_delta);
@@ -81,6 +72,15 @@ int main() {
     if (delta_discrepancy > 0) {
         printf("Error, discrepancy of %lld\n", delta_discrepancy);
     }
+
+    io::RGBA255 test_colour = final_colour;
+    for (int b = 0; b < 255; b++) {
+        test_colour.b = (unsigned char)b;
+        auto test_composited_pixel = raster::composit_over_straight_255(raster::composit_over_straight_255(background.data[0], test_colour), foreground.data[0]);
+        long long int test_error = image_delta(target, io::Image<io::RGBA255>(width, width, test_composited_pixel));
+        printf("%lld,", test_error);
+    }
+    printf("\n");
 
     return 0;
 }
