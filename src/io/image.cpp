@@ -74,10 +74,7 @@ namespace io {
 
     Image<RGB01> to_rgb01(const Image<RGB255> &image)
     {
-        Image<RGB01> out;
-        out.width = image.width;
-        out.height = image.height;
-        out.data.reserve(image.data.size());
+        Image<RGB01> out(image.width, image.height);
         for (auto &pixel : image.data)
         {
             out.data.push_back(to_rgb01(pixel));
@@ -87,10 +84,7 @@ namespace io {
 
     Image<RGBA01> to_rgba01(const Image<RGBA255> &image)
     {
-        Image<RGBA01> out;
-        out.width = image.width;
-        out.height = image.height;
-        out.data.reserve(image.data.size());
+        Image<RGBA01> out(image.width, image.height);
         for (auto &pixel : image.data)
         {
             out.data.push_back(to_rgba01(pixel));
@@ -100,10 +94,7 @@ namespace io {
 
     Image<RGB255> to_rgb255(const Image<RGB01> &image)
     {
-        Image<RGB255> out;
-        out.width = image.width;
-        out.height = image.height;
-        out.data.reserve(image.data.size());
+        Image<RGB255> out(image.width, image.height);
         for (auto &pixel : image.data)
         {
             out.data.push_back(to_rgb255(pixel));
@@ -113,10 +104,7 @@ namespace io {
 
     Image<RGBA255> to_rgba255(const Image<RGBA01> &image)
     {
-        Image<RGBA255> out;
-        out.width = image.width;
-        out.height = image.height;
-        out.data.reserve(image.data.size());
+        Image<RGBA255> out(image.width, image.height);
         for (auto &pixel : image.data)
         {
             out.data.push_back(to_rgba255(pixel));
