@@ -36,9 +36,6 @@ namespace io {
     RGB255 to_rgb255(const RGB01& rgb);
     RGBA255 to_rgba255(const RGBA01& rgba);
 
-    // template<typename PixelT>
-    // concept Pixel = std::is_same_v<PixelT, RGB01> || std::is_same_v<PixelT, RGBA01> || std::is_same_v<PixelT, RGB255> || std::is_same_v<PixelT, RGBA255>;
-
     template<typename PixelT>
     struct Image {
         std::vector<PixelT> data;
