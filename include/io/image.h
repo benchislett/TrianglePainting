@@ -51,6 +51,16 @@ namespace io {
         std::vector<PixelT> data;
         int width;
         int height;
+
+        Image() : width(0), height(0) {}
+
+        Image(int width, int height) : width(width), height(height) {
+            data.resize(width * height);
+        }
+
+        Image(int width, int height, const PixelT& value) : width(width), height(height) {
+            data.resize(width * height, value);
+        }
     };
 
     Image<RGB01> to_rgb01(const Image<RGB255>& image);
