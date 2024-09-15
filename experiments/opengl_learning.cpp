@@ -1,14 +1,24 @@
 #include "raster/rasterization.h"
 #include "io/png.h"
+#include "common.h"
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
 
 #include <cstdio>
 #include <iostream>
+#include <random>
 
 static GLuint programid = -1;
 static GLFWwindow* window = nullptr;
+
+float randf01() { // TODO: REFACTOR THIS
+    static thread_local std::random_device rd;
+    static thread_local std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> dis(0.0, 1.0);
+    return dis(gen);
+}
 
 static void init() {
     if (programid != -1) {
@@ -58,28 +68,45 @@ static void init() {
      * This contradicts the typical arrangement of the OpenGL Viewport.
      * Instead of flipping the axis when drawing, we leave it unchanged because glReadPixels also
      * returns the opposite row-order that we expect, so both cancel out and correct the vertical flip. */
-	std::string VertexShaderCode = R"(#version 330 core 
+	std::string VertexShaderCode = R"(#version 430 core 
 layout(location = 0) in vec2 vertexPosition;
 
-out vec4 colour;
 out vec2 tex_coord;
 
 void main() {
 	gl_Position = vec4((vertexPosition.x - 0.5) * 2.0, (vertexPosition.y - 0.5) * 2.0, 0.0, 1.0);
-    colour = vec4(1, 0, 0, 1);
     tex_coord = vertexPosition.xy;
 }
 )";
 
-    std::string FragmentShaderCode = R"(#version 330 core
-in vec4 colour;
+    std::string FragmentShaderCode = R"(#version 430 core
 out vec4 out_colour;
 in vec2 tex_coord;
 
 uniform sampler2D tex;
 
+struct FragData {
+    vec3 color;
+    uint id;
+};
+
+layout(std430, binding = 0) buffer FragmentBuffer {
+    FragData fragments[];
+};
+
+layout(std430, binding = 1) buffer GlobalCounter {
+    uint globalCounter;
+};
+
 void main() {
-	out_colour = vec4(texture2D(tex, tex_coord).xyz, 1.f);
+	vec4 texColor = texture2D(tex, tex_coord);
+
+    uint index = atomicAdd(globalCounter, 1);
+
+    fragments[index].color = texColor.xyz;
+    fragments[index].id = gl_PrimitiveID + 1;
+
+    out_colour = vec4(texColor.xyz, 0.25);
 }
 )";
 
@@ -138,6 +165,11 @@ void main() {
 	programid = ProgramID;
 }
 
+struct FragData {
+    glm::vec3 color;
+    GLuint id;
+};
+
 void test_rast(const std::vector<geometry2d::triangle>& triangles, io::Image<io::RGBA255>& image, const io::Image<io::RGB255>& background, const io::Image<io::RGB255>& target) {
     init();
 
@@ -192,6 +224,20 @@ void test_rast(const std::vector<geometry2d::triangle>& triangles, io::Image<io:
     GLuint textureID[1];
     glGenTextures(1, &textureID[0]);
 
+    GLuint fragmentSSBO, counterSSBO;
+    glGenBuffers(1, &fragmentSSBO);
+    glGenBuffers(1, &counterSSBO);
+    
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, fragmentSSBO);
+    std::vector<FragData> fragmentData(image.width * image.height * triangles.size() / 10);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, fragmentData.size() * sizeof(FragData), nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, fragmentSSBO);
+
+    GLuint globalCounter = 0;
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, counterSSBO);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(GLuint), &globalCounter, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, counterSSBO);
+
     // Use the shader
     glUseProgram(programid);
 
@@ -230,13 +276,19 @@ void test_rast(const std::vector<geometry2d::triangle>& triangles, io::Image<io:
 
     glReadPixels(0, 0, image.width, image.height, GL_RGBA, GL_UNSIGNED_BYTE, (unsigned char*)image.data.data());
 
+    // glBindBuffer(GL_SHADER_STORAGE_BUFFER, fragmentSSBO);
+    // glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, fragmentData.size() * sizeof(FragData), fragmentData.data());
+    // for (auto x : fragmentData) {
+    //     printf("%u | %.2f %.2f %.2f\n", x.id, x.color.x, x.color.y, x.color.z);
+    // }
+
     // Cleanup VBO
     glDeleteBuffers(1, &vertexbuffer);
     glDeleteVertexArrays(1, &VertexArrayID);
 }
 
 int main(int argc, char** argv) {
-    int image_resolution = 1024;
+    int image_resolution = 256;
 
     io::Image<io::RGBA255> image;
     image.width = image_resolution;
@@ -245,8 +297,12 @@ int main(int argc, char** argv) {
     image.data.resize(image.width * image.height);
     std::fill(image.data.begin(), image.data.end(), io::RGBA255{0, 0, 0, 255});
 
-    geometry2d::triangle tri{{0.1, 0.1}, {0.5, 0.1}, {0.5, 0.5}};
-    std::vector<geometry2d::triangle> tris = {tri};
+    int num_tris = 100000;
+    std::vector<geometry2d::triangle> tris;
+    for (int i = 0; i < num_tris; i++) {
+        geometry2d::triangle tri{{randf01(), randf01()}, {randf01(), randf01()}, {randf01(), randf01()}};
+        tris.push_back(tri);
+    }
 
     test_rast(tris, image, io::load_png_rgb("background.png"), io::load_png_rgb("lisa.png"));
 

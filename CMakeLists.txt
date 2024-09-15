@@ -3,23 +3,24 @@ set(CMAKE_CXX_STANDARD 20)
 
 project(Science LANGUAGES CXX)
 
-option(USE_CUDA "Use CUDA" OFF)
+option(USE_CUDA "Use CUDA" ON)
 
 if(USE_CUDA)
   message("Enabling CUDA")
   enable_language(CUDA)
   set(CMAKE_CUDA_ARCHITECTURES "89")
-  find_package(Thrust REQUIRED CONFIG)
-  thrust_create_target(Thrust)
   find_package(CUDAToolkit REQUIRED)
+  # find_package(Thrust REQUIRED)
+  # thrust_create_target(Thrust)
 endif()
 
 # enable AddressSanitizer if in debug mode
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-  message("Enabling AddressSanitizer")
-  add_compile_options(-fsanitize=address)
+  message("Building in DEBUG MODE")
+  # message("Enabling AddressSanitizer")
+  # add_compile_options(-fsanitize=address)
   add_compile_options(-fno-omit-frame-pointer)
-  add_link_options(-fsanitize=address)
+  # add_link_options(-fsanitize=address)
   add_link_options(-fno-omit-frame-pointer)
 endif()
 
@@ -48,7 +49,8 @@ add_library(Science STATIC ${SOURCES} ${HEADERS})
 
 if(USE_CUDA)
   target_link_libraries(Science PUBLIC CUDA::cublas)
-  target_link_libraries(Science PUBLIC Thrust)
+  target_link_libraries(Science PUBLIC CUDA::cudart)
+  # target_link_libraries(Science PUBLIC Thrust)
 endif()
 
 target_include_directories(Science PUBLIC include)
@@ -67,6 +69,9 @@ target_link_libraries(Science PUBLIC nlohmann_json::nlohmann_json)
 find_package(OpenGL REQUIRED)
 target_link_libraries(Science PUBLIC OpenGL::GL)
 target_link_libraries(Science PUBLIC OpenGL::GLU)
+# GLM dependency
+find_package(glm REQUIRED)
+target_link_libraries(Science PUBLIC glm::glm)
 # GLFW dependency
 find_package(glfw3 REQUIRED)
 target_link_libraries(Science PUBLIC glfw)
@@ -79,7 +84,6 @@ FetchContent_Declare(
   googletest
   GIT_REPOSITORY https://github.com/google/googletest.git
   GIT_TAG        main
-  FIND_PACKAGE_ARGS NAMES GTest
 )
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
