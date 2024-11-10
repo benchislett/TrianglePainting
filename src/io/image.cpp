@@ -1,4 +1,5 @@
 #include "io/image.h"
+#include <cmath>
 
 namespace io {
 

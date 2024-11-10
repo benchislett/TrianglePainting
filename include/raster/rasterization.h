@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <cassert>
+#include <algorithm>
 
 #include <unordered_set>
 

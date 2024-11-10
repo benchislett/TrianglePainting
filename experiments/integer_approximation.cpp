@@ -1,5 +1,6 @@
 #include "raster/composit.h"
 #include <cmath>
+#include <cstdio>
 
 int div255_true(int a, int b) {
     return (a * b) / 255;
