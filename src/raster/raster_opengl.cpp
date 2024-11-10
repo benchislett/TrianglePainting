@@ -9,7 +9,7 @@
 static GLuint programid = -1;
 static GLFWwindow* window = nullptr;
 
-static void init() {
+static void gl_setup() {
     if (programid != -1) {
         return;
     }
@@ -136,7 +136,7 @@ void main() {
 namespace raster {
 
     void rasterize_triangles_to_image_opengl(const std::vector<geometry2d::triangle>& triangles, const std::vector<io::RGBA255>& colours, io::RGBA255 background_colour, io::Image<io::RGBA255>& image) {
-        init();
+        gl_setup();
 
         glViewport(0, 0, image.width, image.height);
 
