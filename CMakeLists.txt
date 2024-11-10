@@ -16,11 +16,14 @@ endif()
 
 # enable AddressSanitizer if in debug mode
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-  message("Building in DEBUG MODE")
-  # message("Enabling AddressSanitizer")
-  # add_compile_options(-fsanitize=address)
+message("Enabling AddressSanitizer")
+add_compile_options(-fsanitize=address)
+add_link_options(-fsanitize=address)
+endif()
+
+if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+  message("Enabling no-omit-frame-pointer")
   add_compile_options(-fno-omit-frame-pointer)
-  # add_link_options(-fsanitize=address)
   add_link_options(-fno-omit-frame-pointer)
 endif()
 
