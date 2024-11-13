@@ -193,15 +193,15 @@ int main() {
 
     // Define vertices and texture coordinates for two disjoint triangles
     float vertices[] = {
-        // Triangle 1
-        -0.5f, -0.5f,  0.0f, 0.0f,  // Bottom-left
-         0.0f,  0.5f,  0.5f, 1.0f,  // Top
-         0.5f, -0.5f,  1.0f, 0.0f,  // Bottom-right
+        // Triangle 0
+        0.5f,  0.9f,  0.0f, 0.0f,  // Bottom-left
+        0.9f,  0.9f,  0.5f, 1.0f,  // Top
+        0.9f,  0.3f,  1.0f, 0.0f,  // Bottom-right
 
-        // Triangle 2
-        0.5f,  0.5f,  0.0f, 0.0f,  // Bottom-left
-        1.0f,  0.5f,  0.5f, 1.0f,  // Top
-        1.5f,  0.5f,  1.0f, 0.0f  // Bottom-right
+        // Triangle 1
+        0.5f,  0.9f,  0.0f, 0.0f,  // Bottom-left
+        0.9f,  0.9f,  0.5f, 1.0f,  // Top
+        0.9f,  0.3f,  1.0f, 0.0f  // Bottom-right
     };
 
     // Setup VBO and VAO
