@@ -5,6 +5,9 @@
 #include <vector>
 #include "io/png.h"
 
+#define WIN_X 200
+#define WIN_Y WIN_X
+
 // Vertex and fragment shaders
 const char* vertexShaderSource = R"(
 #version 430 core
@@ -258,7 +261,7 @@ int main() {
     glGenBuffers(1, &counterSSBO);
     
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, fragmentSSBO);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, 512 * 512 * 2 * sizeof(FragmentData), nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, WIN_X * WIN_Y * 2 * sizeof(FragmentData), nullptr, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, fragmentSSBO);
 
     GLuint globalCounter = 0;
