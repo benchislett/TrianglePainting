@@ -54,7 +54,7 @@ void main() {
     
     // Store fragment color and triangle ID
     fragments[index].color = texColor;
-    fragments[index].triangleID = gl_PrimitiveID;
+    fragments[index].triangleID = gl_PrimitiveID + 1;
 
     // Output fragment color to the screen (optional)
     fragColor = texColor;
@@ -104,7 +104,7 @@ void main() {
 
     // Loop through all fragments and accumulate for the current triangle
     for (uint i = localID; i < totalFragments; i += gl_WorkGroupSize.x) {
-        if (fragments[i].triangleID == triangleID) {
+        if (fragments[i].triangleID - 1 == triangleID) {
             atomicAdd(fragmentCount, 1);
             // atomicAdd(colorSum, fragments[i].color);
             atomicAdd(accumR, uint(fragments[i].color.x * 255));
