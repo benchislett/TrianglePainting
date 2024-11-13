@@ -17,8 +17,11 @@ flat out uint triangleID;
 out vec2 fragTexCoord;
 
 void main() {
-    gl_Position = vec4(position, 0.0, 1.0);
-    fragTexCoord = texCoord;
+    gl_Position = vec4(position.x, -position.y, 0.0, 1.0);
+
+    // Normalize texture coordinates
+    fragTexCoord = (position + 1.0) / 2.0;
+    fragTexCoord.y = 1.0 - fragTexCoord.y;
     
     // Assign unique triangle IDs
     triangleID = (position.x < 0.0) ? 0u : 1u;
