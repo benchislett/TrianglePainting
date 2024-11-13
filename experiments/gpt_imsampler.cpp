@@ -177,7 +177,7 @@ int main() {
         return -1;
     }
     
-    GLFWwindow* window = glfwCreateWindow(800, 600, "OpenGL Fragment Accumulation", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(WIN_X, WIN_Y, "OpenGL Fragment Accumulation", nullptr, nullptr);
     if (!window) {
         std::cerr << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
