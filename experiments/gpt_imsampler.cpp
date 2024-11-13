@@ -282,6 +282,9 @@ int main() {
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, resultSSBO);
         glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, clearData.size() * sizeof(float), clearData.data());
 
+        glClearColor(0.8f, 0.8f, 0.8f, 1.0f );
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
         // Render pass
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
