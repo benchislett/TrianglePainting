@@ -318,6 +318,20 @@ int main() {
         glfwSwapBuffers(window);
         glfwPollEvents();
 
+        io::Image<io::RGBA255> output(WIN_X, WIN_Y);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glDisableVertexAttribArray(0);
+
+        glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+        glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
+        glPixelStorei(GL_PACK_SKIP_ROWS, 0);
+        glPixelStorei(GL_PACK_ALIGNMENT, 1);
+        glReadBuffer(GL_BACK_LEFT);
+
+        glReadPixels(0, 0, output.width, output.height, GL_RGBA, GL_UNSIGNED_BYTE, (unsigned char*)output.data.data());
+
+        io::save_png_rgba("output.png", output);
+
         break;
     }
 
