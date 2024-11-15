@@ -3,17 +3,42 @@
 #include <glm/glm.hpp>
 #include <iostream>
 #include <vector>
+#include <random>
+#include <chrono>
+
 #include "io/png.h"
+#include "geometry/types.h"
 
 #define WIN_X 200
 #define WIN_Y WIN_X
+
+float randf(float min, float max) {
+    static thread_local std::random_device rd;
+    static thread_local std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> dis(min, max);
+    return dis(gen);
+}
+
+// Global start time
+static std::chrono::time_point<std::chrono::high_resolution_clock> _perf_start;
+
+struct PerfInstrumenter {
+    static void register_start() {
+        _perf_start = std::chrono::high_resolution_clock::now();
+    }
+
+    static void register_step(const std::string& step_name) {
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = end - _perf_start;
+        std::cout << step_name << " took " << elapsed.count() << "s" << std::endl;
+        _perf_start = std::chrono::high_resolution_clock::now();
+    }
+};
 
 // Vertex and fragment shaders
 const char* vertexShaderSource = R"(
 #version 430 core
 layout(location = 0) in vec2 position;
-layout(location = 1) in vec2 texCoord;
-flat out uint triangleID;
 out vec2 fragTexCoord;
 
 void main() {
@@ -22,9 +47,6 @@ void main() {
     // Normalize texture coordinates
     fragTexCoord = (position + 1.0) / 2.0;
     fragTexCoord.y = 1.0 - fragTexCoord.y;
-    
-    // Assign unique triangle IDs
-    triangleID = (position.x < 0.0) ? 0u : 1u;
 }
 )";
 
@@ -33,7 +55,6 @@ const char* fragmentShaderSource = R"(
 out vec4 fragColor;
 
 uniform sampler2D myTexture;
-flat in uint triangleID;
 in vec2 fragTexCoord;
 
 struct FragmentData {
@@ -152,9 +173,10 @@ void CheckLinking(GLuint program) {
     }
 }
 
-void PrintResults(const std::vector<glm::vec4>& averageColors) {
+void PrintResults(const std::vector<glm::vec4>& averageColors, int head = -1) {
     std::cout << "Triangle Average Colors:" << std::endl;
-    for (size_t i = 0; i < averageColors.size(); ++i) {
+    int num_to_print = head == -1 ? averageColors.size() : head;
+    for (size_t i = 0; i < num_to_print; ++i) {
         std::cout << "Triangle " << i << ": (" 
                   << averageColors[i].r << ", "
                   << averageColors[i].g << ", "
@@ -174,6 +196,8 @@ void PrintFragment(const FragmentData& fragment) {
 }
 
 int main() {
+    PerfInstrumenter::register_start();
+
     // Initialize GLFW and GLEW
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW" << std::endl;
@@ -194,18 +218,18 @@ int main() {
         return -1;
     }
 
-    // Define vertices and texture coordinates for two disjoint triangles
-    float vertices[] = {
-        // Triangle 0
-        0.5f,  0.9f,  0.0f, 0.0f,  // Bottom-left
-        0.9f,  0.9f,  0.5f, 1.0f,  // Top
-        0.9f,  0.3f,  1.0f, 0.0f,  // Bottom-right
+    PerfInstrumenter::register_step("GL Init");
 
-        // Triangle 1
-        0.5f,  0.9f,  0.0f, 0.0f,  // Bottom-left
-        0.9f,  0.9f,  0.5f, 1.0f,  // Top
-        0.9f,  0.3f,  1.0f, 0.0f  // Bottom-right
-    };
+    int num_tris = 5000;
+    std::vector<geometry2d::triangle> tris;
+
+    for (int i = 0; i < num_tris; i++) {
+        tris.emplace_back(geometry2d::triangle{
+            {randf(-1, 1), randf(-1, 1)},
+            {randf(-1, 1), randf(-1, 1)},
+            {randf(-1, 1), randf(-1, 1)}
+        });
+    }
 
     // Setup VBO and VAO
     GLuint VBO, VAO;
@@ -215,15 +239,10 @@ int main() {
     glBindVertexArray(VAO);
     
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    
-    // Position attribute
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(geometry2d::triangle) * tris.size(), (const float*)tris.data(), GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-    
-    // TexCoord attribute
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-    glEnableVertexAttribArray(1);
     
     glBindVertexArray(0);
 
@@ -264,7 +283,7 @@ int main() {
     glGenBuffers(1, &counterSSBO);
     
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, fragmentSSBO);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, WIN_X * WIN_Y * 2 * sizeof(FragmentData), nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, WIN_X * WIN_Y * tris.size() * sizeof(FragmentData), nullptr, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, fragmentSSBO);
 
     GLuint globalCounter = 0;
@@ -276,23 +295,30 @@ int main() {
     GLuint resultSSBO;
     glGenBuffers(1, &resultSSBO);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, resultSSBO);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, 2 * sizeof(glm::vec4), nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, tris.size() * sizeof(glm::vec4), nullptr, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, resultSSBO);
+
+    PerfInstrumenter::register_step("GL Setup");
 
     // Main rendering loop
     while (!glfwWindowShouldClose(window)) {
-        std::vector<float> clearData(2 * 4, 0);
+        std::vector<float> clearData(tris.size() * 4, 0);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, resultSSBO);
         glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, clearData.size() * sizeof(float), clearData.data());
 
         glClearColor(0.8f, 0.8f, 0.8f, 1.0f );
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        PerfInstrumenter::register_step("GL Clear");
+
         // Render pass
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glDrawArrays(GL_TRIANGLES, 0, tris.size() * 3);
 
+        PerfInstrumenter::register_step("GL Draw");
+
+        /*
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, fragmentSSBO);
         GLint size_bytes;
         glGetBufferParameteriv(GL_SHADER_STORAGE_BUFFER, GL_BUFFER_SIZE, &size_bytes);
@@ -300,22 +326,31 @@ int main() {
         std::vector<FragmentData> fragmentData(size_bytes / sizeof(FragmentData));
         glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, size_bytes, fragmentData.data());
         std::cout << fragmentData.size() << std::endl;
-        for (auto x : fragmentData) {
-            PrintFragment(x);
-        }
-        std::cout << '\n';
+
+        // for (auto x : fragmentData) {
+        //     PrintFragment(x);
+        // }
+        // std::cout << '\n';
+        
+        PerfInstrumenter::register_step("GL Fetch Fragments");
+        */
+
         
         // Compute pass
         glUseProgram(computeProgram);
-        glDispatchCompute(2, 1, 1);
+        glDispatchCompute(tris.size(), 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+        PerfInstrumenter::register_step("GL Compute");
         
         // Retrieve and print results
-        std::vector<glm::vec4> averageColors(2);
+        std::vector<glm::vec4> averageColors(tris.size());
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, resultSSBO);
-        glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 2 * sizeof(glm::vec4), averageColors.data());
+        glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, tris.size() * sizeof(glm::vec4), averageColors.data());
+
+        PerfInstrumenter::register_step("GL Fetch Results");
         
-        PrintResults(averageColors);
+        PrintResults(averageColors, 5);
 
         // Poll for events and swap buffers
         glfwSwapBuffers(window);
@@ -333,7 +368,11 @@ int main() {
 
         glReadPixels(0, 0, output.width, output.height, GL_RGBA, GL_UNSIGNED_BYTE, (unsigned char*)output.data.data());
 
+        PerfInstrumenter::register_step("GL Read Pixels");
+
         io::save_png_rgba("output.png", output);
+
+        PerfInstrumenter::register_step("Write Image");
 
         break;
     }
@@ -348,5 +387,8 @@ int main() {
     glDeleteBuffers(1, &resultSSBO);
 
     glfwTerminate();
+
+    PerfInstrumenter::register_step("GL Cleanup");
+
     return 0;
 }
