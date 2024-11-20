@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.15)
 set(CMAKE_CXX_STANDARD 20)
 
 project(Science LANGUAGES CXX)
@@ -12,6 +12,11 @@ if(USE_CUDA)
   find_package(CUDAToolkit REQUIRED)
   # find_package(Thrust REQUIRED)
   # thrust_create_target(Thrust)
+endif()
+
+if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
 # enable AddressSanitizer if in debug mode
@@ -116,3 +121,24 @@ foreach(EXPERIMENT ${EXPERIMENTS})
   target_link_libraries(${EXPERIMENT_NAME} Science)
   target_include_directories(${EXPERIMENT_NAME} PUBLIC experiments)
 endforeach()
+
+# set up python bindings
+if (CMAKE_VERSION VERSION_LESS 3.18)
+  set(DEV_MODULE Development)
+else()
+  set(DEV_MODULE Development.Module)
+endif()
+
+find_package(Python 3.8 COMPONENTS Interpreter ${DEV_MODULE} REQUIRED)
+
+# Detect the installed nanobind package and import it into CMake
+message( "${Python_EXECUTABLE}" )
+execute_process(
+  COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
+  OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE nanobind_ROOT)
+find_package(nanobind CONFIG REQUIRED)
+
+# add the Python bindings
+file(GLOB_RECURSE PYBINDINGS "bindings/*.cpp")
+nanobind_add_module(SciencePy MODULE ${PYBINDINGS})
+target_link_libraries(SciencePy PRIVATE Science)
