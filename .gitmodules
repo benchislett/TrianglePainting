@@ -1,3 +1,6 @@
 [submodule "ext/lodepng"]
 	path = ext/lodepng
 	url = https://github.com/lvandeve/lodepng
+[submodule "ext/diffvg"]
+	path = ext/diffvg
+	url = https://github.com/BachiLi/diffvg.git
