@@ -14,6 +14,12 @@ std::tuple<float, float, float> barycentrics(float px, float py, float t1x, floa
     return {b.u, b.v, b.w};
 }
 
+namespace nb = nanobind;
+
 NB_MODULE(SciencePy, m) {
     m.def("barycentrics", &barycentrics);
+    nb::class_<geometry2d::point>(m, "Point")
+        .def(nb::init<float, float>())
+        .def_rw("x", &geometry2d::point::x)
+        .def_rw("y", &geometry2d::point::y);
 }
