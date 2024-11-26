@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 set(CMAKE_CXX_STANDARD 20)
 
-project(PolyPaint LANGUAGES CXX)
+project(PolyPaintLib LANGUAGES CXX)
 
 option(USE_CUDA "Use CUDA" ON)
 
@@ -140,5 +140,5 @@ find_package(nanobind CONFIG REQUIRED)
 
 # add the Python bindings
 file(GLOB_RECURSE PYBINDINGS "bindings/*.cpp")
-nanobind_add_module(PolyPaintNanobind MODULE ${PYBINDINGS})
-target_link_libraries(PolyPaintNanobind PRIVATE ${PROJECT_NAME})
+nanobind_add_module(polypaint MODULE ${PYBINDINGS})
+target_link_libraries(polypaint PRIVATE ${PROJECT_NAME})
