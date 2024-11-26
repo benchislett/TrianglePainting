@@ -14,3 +14,4 @@ _skbuild
 *.egg-info*
 *.cpython-*
 .ipynb_checkpoints
+.venv
