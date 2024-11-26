@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 set(CMAKE_CXX_STANDARD 20)
 
-project(Science LANGUAGES CXX)
+project(PolyPaint LANGUAGES CXX)
 
 option(USE_CUDA "Use CUDA" ON)
 
@@ -53,39 +53,39 @@ if(USE_CUDA)
   list(APPEND HEADERS ${CUDA_HEADERS})
 endif()
 
-add_library(Science STATIC ${SOURCES} ${HEADERS})
+add_library(${PROJECT_NAME} STATIC ${SOURCES} ${HEADERS})
 
 if(USE_CUDA)
-  target_link_libraries(Science PUBLIC CUDA::cublas)
-  target_link_libraries(Science PUBLIC CUDA::cudart)
-  # target_link_libraries(Science PUBLIC Thrust)
+  target_link_libraries(${PROJECT_NAME} PUBLIC CUDA::cublas)
+  target_link_libraries(${PROJECT_NAME} PUBLIC CUDA::cudart)
+  # target_link_libraries(${PROJECT_NAME} PUBLIC Thrust)
 endif()
 
-target_include_directories(Science PUBLIC include)
+target_include_directories(${PROJECT_NAME} PUBLIC include)
 
 # LodePNG dependency
 add_library(LodePNG STATIC "ext/lodepng/lodepng.cpp" "ext/lodepng/lodepng.h")
 target_include_directories(LodePNG PUBLIC "ext/lodepng/")
-target_link_libraries(Science PUBLIC LodePNG)
+target_link_libraries(${PROJECT_NAME} PUBLIC LodePNG)
 
 # JSON dependency
 FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz)
 FetchContent_MakeAvailable(json)
-target_link_libraries(Science PUBLIC nlohmann_json::nlohmann_json)
+target_link_libraries(${PROJECT_NAME} PUBLIC nlohmann_json::nlohmann_json)
 
 # OpenGL dependency
 find_package(OpenGL REQUIRED)
-target_link_libraries(Science PUBLIC OpenGL::GL)
-target_link_libraries(Science PUBLIC OpenGL::GLU)
+target_link_libraries(${PROJECT_NAME} PUBLIC OpenGL::GL)
+target_link_libraries(${PROJECT_NAME} PUBLIC OpenGL::GLU)
 # GLM dependency
 find_package(glm REQUIRED)
-target_link_libraries(Science PUBLIC glm::glm)
+target_link_libraries(${PROJECT_NAME} PUBLIC glm::glm)
 # GLFW dependency
 find_package(glfw3 REQUIRED)
-target_link_libraries(Science PUBLIC glfw)
+target_link_libraries(${PROJECT_NAME} PUBLIC glfw)
 # GLEW dependency
 find_package(GLEW REQUIRED)
-target_link_libraries(Science PUBLIC GLEW::GLEW)
+target_link_libraries(${PROJECT_NAME} PUBLIC GLEW::GLEW)
 
 # set up GoogleTest
 FetchContent_Declare(
@@ -100,7 +100,7 @@ FetchContent_MakeAvailable(googletest)
 enable_testing()
 
 add_executable(Test ${TESTS})
-target_link_libraries(Test GTest::gtest_main Science)
+target_link_libraries(Test GTest::gtest_main ${PROJECT_NAME})
 
 include(GoogleTest)
 gtest_discover_tests(Test)
@@ -118,7 +118,7 @@ endif()
 foreach(EXPERIMENT ${EXPERIMENTS})
   get_filename_component(EXPERIMENT_NAME ${EXPERIMENT} NAME_WE)
   add_executable(${EXPERIMENT_NAME} ${EXPERIMENT} ${EXPERIMENT_HEADERS})
-  target_link_libraries(${EXPERIMENT_NAME} Science)
+  target_link_libraries(${EXPERIMENT_NAME} ${PROJECT_NAME})
   target_include_directories(${EXPERIMENT_NAME} PUBLIC experiments)
 endforeach()
 
@@ -140,5 +140,5 @@ find_package(nanobind CONFIG REQUIRED)
 
 # add the Python bindings
 file(GLOB_RECURSE PYBINDINGS "bindings/*.cpp")
-nanobind_add_module(SciencePy MODULE ${PYBINDINGS})
-target_link_libraries(SciencePy PRIVATE Science)
+nanobind_add_module(PolyPaintNanobind MODULE ${PYBINDINGS})
+target_link_libraries(PolyPaintNanobind PRIVATE ${PROJECT_NAME})

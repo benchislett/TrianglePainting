@@ -33,17 +33,17 @@ def read_readme():
         return f.read()
 
 setup(
-    name="SciencePy",
+    name="PolyPaint",
     version="0.1.0",
     description="A Python library for rendering triangles.",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
     author="Benjamin Chislett",
     author_email="chislett.ben@gmail.com",
-    url="https://github.com/benchislett/Science",
+    url="https://github.com/benchislett/TrianglePainting",
     license="MIT",
     packages=[""],
-    cmake_install_dir="SciencePy",
+    cmake_install_dir="PolyPaint",
     include_package_data=True,
     python_requires=">=3.7",
     install_requires=[],
@@ -53,7 +53,7 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-        ext_modules=[Extension("SciencePy", sources=[])],
+        ext_modules=[Extension("PolyPaint", sources=[])],
         cmdclass={"build_ext": CMakeBuild},
         zip_safe=False,
 )

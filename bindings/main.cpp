@@ -12,7 +12,7 @@ void init_image_io(nb::module_& m); // TODO
 
 void init_raster_composit(nb::module_& m); // TODO
 
-NB_MODULE(SciencePy, m) {
+NB_MODULE(PolyPaint, m) {
     init_geometry_types(m);
     init_geometry_barycentrics(m);
 
