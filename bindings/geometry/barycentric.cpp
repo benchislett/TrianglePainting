@@ -1,5 +1,6 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/tuple.h>
+#include <nanobind/stl/string.h>
 
 #include "geometry/types.h"
 #include "geometry/barycentric.h"
@@ -15,8 +16,21 @@ std::tuple<float, float, float> barycentrics(float px, float py, float t1x, floa
 }
 
 namespace nb = nanobind;
+using namespace nb::literals;
 
 void init_geometry_barycentrics(nb::module_& m)
 {
-    m.def("barycentrics", &barycentrics);
+    nb::class_<geometry::barycentric>(m, "Barycentric")
+        .def(nb::init<>())  // Default constructor
+        .def_rw("u", &geometry::barycentric::u)
+        .def_rw("v", &geometry::barycentric::v)
+        .def_rw("w", &geometry::barycentric::w)
+        .def("__repr__", [](const geometry::barycentric &b) {
+            return "<Barycentric u=" + std::to_string(b.u) + 
+                   ", v=" + std::to_string(b.v) + 
+                   ", w=" + std::to_string(b.w) + ">";
+        });
+
+    m.def("barycentric_coordinates", &geometry::barycentric_coordinates,
+          "sample_point"_a, "triangle"_a);
 }
