@@ -17,7 +17,7 @@ namespace raster {
      * Takes a list of triangles and respective colours and a background colour, and rasterizes them in a single draw call to the output image.
      * Overwrites any contents of the output image.
      */
-    void rasterize_triangles_to_image_opengl(const std::vector<geometry2d::triangle>& triangles, const std::vector<io::RGBA255>& colours, io::RGBA255 background_colour, io::Image<io::RGBA255>& image);
+    void rasterize_triangles_to_image_opengl(const std::vector<geometry::triangle>& triangles, const std::vector<io::RGBA255>& colours, io::RGBA255 background_colour, io::Image<io::RGBA255>& image);
 
     /* Generic 2D Triangle Rasterization 
      * Given an arbitrary shader object, call `shader.render_pixel(x, y)` for each pixel in the `triangle`
@@ -28,7 +28,7 @@ namespace raster {
      * - For each pixel in the box, compute the barycentric coordinates at the center of that pixel w.r.t. the `triangle`
      * - If the barycentric coordinates are all non-negative, shade the point. */
     template<class Shader>
-    void rasterize_triangle_bounded(const geometry2d::triangle& triangle, int width, int height, Shader& shader) {
+    void rasterize_triangle_bounded(const geometry::triangle& triangle, int width, int height, Shader& shader) {
         int lower_x = std::max(0, (int)(std::min({triangle.a.x, triangle.b.x, triangle.c.x}) * width));
         int lower_y = std::max(0, (int)(std::min({triangle.a.y, triangle.b.y, triangle.c.y}) * height));
         int upper_x = std::min(width - 1, (int)(std::max({triangle.a.x, triangle.b.x, triangle.c.x}) * width));
@@ -38,7 +38,7 @@ namespace raster {
             for (int y = lower_y; y <= upper_y; y++) {
                 float u = (x + 0.5f) / (float)width;
                 float v = (y + 0.5f) / (float)height;
-                auto bary = geometry2d::barycentric_coordinates({u, v}, triangle);
+                auto bary = geometry::barycentric_coordinates({u, v}, triangle);
                 if (bary.u >= 0 && bary.v >= 0 && bary.w >= 0) {
                     shader.render_pixel(x, y);
                 }
@@ -57,7 +57,7 @@ namespace raster {
      * Credit for the implementation goes to https://fgiesen.wordpress.com/2013/02/10/optimizing-the-basic-rasterizer
      */
     template<class Shader>
-    void rasterize_triangle_integer(const geometry2d::triangle& tri, int width, int height, Shader& shader) {
+    void rasterize_triangle_integer(const geometry::triangle& tri, int width, int height, Shader& shader) {
         int xs[3] = {int(tri.a.x * width), int(tri.b.x * width), int(tri.c.x * width)};
         int ys[3] = {int(tri.a.y * height), int(tri.b.y * height), int(tri.c.y * height)};
 
@@ -122,7 +122,7 @@ namespace raster {
      * Credit for the implementation goes to http://alienryderflex.com/polygon_fill/
      */
     template<class Shader>
-    void rasterize_polygon_scanline(const std::vector<geometry2d::point>& polygon, int width, int height, Shader& shader) {
+    void rasterize_polygon_scanline(const std::vector<geometry::point>& polygon, int width, int height, Shader& shader) {
         constexpr int MAX_POLY_CORNERS = 10;
 
         int  nodes, nodeX[MAX_POLY_CORNERS], pixelX, pixelY, i, j, swap ;
@@ -180,13 +180,13 @@ namespace raster {
      * See: `TriangleRasterizationMode` for available modes.
      */
     template<class Shader, TriangleRasterizationMode mode = TriangleRasterizationMode::Default>
-    void rasterize_triangle(const geometry2d::triangle& triangle, int width, int height, Shader& shader) {
+    void rasterize_triangle(const geometry::triangle& triangle, int width, int height, Shader& shader) {
         if constexpr (mode == TriangleRasterizationMode::Bounded) {
             rasterize_triangle_bounded(triangle, width, height, shader);
         } else if constexpr (mode == TriangleRasterizationMode::Integer) {
             rasterize_triangle_integer(triangle, width, height, shader);
         } else if constexpr (mode == TriangleRasterizationMode::ScanlinePolygon) {
-            std::vector<geometry2d::point> points = {triangle.a, triangle.b, triangle.c};
+            std::vector<geometry::point> points = {triangle.a, triangle.b, triangle.c};
             rasterize_polygon_scanline(points, width, height, shader);
         } else {
             assert (0);
@@ -208,13 +208,13 @@ namespace raster {
 
     /* 2D Triangle Rasterization onto a given image. See `TriangleRasterizationMode` to select an implementation if desired. */
     template<TriangleRasterizationMode mode = TriangleRasterizationMode::Default>
-    void rasterize_triangle_onto_image(const geometry2d::triangle& triangle, const io::RGBA255& colour, io::Image<io::RGBA255>& image) {
+    void rasterize_triangle_onto_image(const geometry::triangle& triangle, const io::RGBA255& colour, io::Image<io::RGBA255>& image) {
         CompositOverImageShader shader(image, colour);
         rasterize_triangle<CompositOverImageShader, mode>(triangle, image.width, image.height, shader);
     }
 
     /* 2D Polygon Rasterization onto a given image. See `rasterize_polygon_scanline` */
-    inline void rasterize_polygon_onto_image(const std::vector<geometry2d::point>& polygon, const io::RGBA255& colour, io::Image<io::RGBA255>& image) {
+    inline void rasterize_polygon_onto_image(const std::vector<geometry::point>& polygon, const io::RGBA255& colour, io::Image<io::RGBA255>& image) {
         CompositOverImageShader shader(image, colour);
         rasterize_polygon_scanline(polygon, image.width, image.height, shader);
     }

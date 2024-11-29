@@ -70,10 +70,10 @@ bool one_in_n(int n) {
 /* Point Utilities */
 
 auto random_point() {
-    return geometry2d::point{randf01(), randf01()};
+    return geometry::point{randf01(), randf01()};
 }
 
-bool mutate_point(geometry2d::point& p) {
+bool mutate_point(geometry::point& p) {
     if (one_in_n(Settings::movePointMaxMutationRate)) {
         p = random_point();
     } else if (one_in_n(Settings::movePointMidMutationRate)) {
@@ -121,7 +121,7 @@ bool mutate_colour(io::RGBA255& c) {
 /* Polygon Utilities */
 
 struct Polygon {
-    std::vector<geometry2d::point> vertices;
+    std::vector<geometry::point> vertices;
     io::RGBA255 colour;
 };
 
@@ -167,7 +167,7 @@ bool add_point(const Drawing& d, Polygon& p) {
         const auto& prev = p.vertices[idx - 1];
         const auto& curr = p.vertices[idx];
 
-        auto new_point = geometry2d::point{(prev.x + curr.x) / 2.0f, (prev.y + curr.y) / 2.0f};
+        auto new_point = geometry::point{(prev.x + curr.x) / 2.0f, (prev.y + curr.y) / 2.0f};
         p.vertices.insert(p.vertices.begin() + idx, new_point);
         return true;
     }

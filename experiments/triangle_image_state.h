@@ -9,18 +9,18 @@
 #include <fstream>
 
 struct RasterScene {
-    std::vector<geometry2d::triangle> triangles;
+    std::vector<geometry::triangle> triangles;
     std::vector<io::RGBA255> colours;
     io::RGBA255 background_colour;
 };
 
 auto load_json(const std::string& filename) {
     auto json = nlohmann::json::parse(std::ifstream(filename));
-    std::vector<geometry2d::triangle> triangles;
+    std::vector<geometry::triangle> triangles;
     std::vector<io::RGBA255> colours;
     io::RGBA01 background{float(json["background"][0]), float(json["background"][1]), float(json["background"][2]), float(json["background"][3])};
     for (auto& tri : json["triangles"]) {
-        triangles.push_back(geometry2d::triangle{
+        triangles.push_back(geometry::triangle{
             {tri["vertices"][0][0], tri["vertices"][0][1]},
             {tri["vertices"][1][0], tri["vertices"][1][1]},
             {tri["vertices"][2][0], tri["vertices"][2][1]}

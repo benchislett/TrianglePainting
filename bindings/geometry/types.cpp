@@ -6,8 +6,8 @@ namespace nb = nanobind;
 
 void init_geometry_types(nb::module_& m)
 {
-    nb::class_<geometry2d::point>(m, "Point")
+    nb::class_<geometry::point>(m, "Point")
         .def(nb::init<float, float>())
-        .def_rw("x", &geometry2d::point::x)
-        .def_rw("y", &geometry2d::point::y);
+        .def_rw("x", &geometry::point::x)
+        .def_rw("y", &geometry::point::y);
 }

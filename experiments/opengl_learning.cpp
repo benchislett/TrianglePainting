@@ -271,7 +271,7 @@ void gl_reset_ssbo(int width, int height, int num_tris) {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, GLState::counterSSBO);
 }
 
-void gl_upload_triangles(const std::vector<geometry2d::triangle>& triangles) {
+void gl_upload_triangles(const std::vector<geometry::triangle>& triangles) {
     glBindVertexArray(GLState::VertexArrayID);
     glBindBuffer(GL_ARRAY_BUFFER, GLState::vertexbuffer);
     std::vector<float> vertex_buffer_data;
@@ -347,10 +347,10 @@ int main(int argc, char** argv) {
     gl_setup(image.width, image.height, target.width, target.height);
     for (int trial = 0; trial < 1; trial++) {
         int num_tris = 10000;
-        std::vector<geometry2d::triangle> tris;
+        std::vector<geometry::triangle> tris;
         tris.reserve(num_tris);
         for (int i = 0; i < num_tris; i++) {
-            geometry2d::triangle tri{{randf01(), randf01()}, {randf01(), randf01()}, {randf01(), randf01()}};
+            geometry::triangle tri{{randf01(), randf01()}, {randf01(), randf01()}, {randf01(), randf01()}};
             tris.push_back(tri);
         }
 

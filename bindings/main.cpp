@@ -16,8 +16,8 @@ NB_MODULE(polypaint, m) {
     init_geometry_types(m);
     init_geometry_barycentrics(m);
 
-//     init_image_png(m);
-//     init_image_io(m);
+    init_image_png(m);
+    init_image_io(m);
 
-//     init_raster_composit(m);
+    init_raster_composit(m);
 }

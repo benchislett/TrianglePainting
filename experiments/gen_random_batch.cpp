@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
     std::mt19937 gen(rd());
     std::uniform_real_distribution<float> dis(0.0, 1.0);
 
-    std::vector<geometry2d::triangle> triangles;
+    std::vector<geometry::triangle> triangles;
     std::vector<io::RGBA255> colours;
     io::RGBA255 background_colour{0, 0, 0, 255};
     for (int i = 0; i < num_triangles; i++) {

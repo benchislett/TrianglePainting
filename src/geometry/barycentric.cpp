@@ -1,6 +1,6 @@
 #include "geometry/barycentric.h"
 
-namespace geometry2d {
+namespace geometry {
     // https://gamedev.stackexchange.com/questions/23743/whats-the-most-efficient-way-to-find-barycentric-coordinates
     PURE barycentric barycentric_coordinates(const point& p, const triangle& t) {
         float det = (t.b.y - t.c.y) * (t.a.x - t.c.x) + (t.c.x - t.b.x) * (t.a.y - t.c.y);

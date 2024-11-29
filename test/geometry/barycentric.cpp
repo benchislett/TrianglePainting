@@ -5,8 +5,8 @@
 #define BARY_TEST_EPSILON 1e-6
 
 // Compute barycentric coordinates and verify that the interpolation formula holds
-geometry2d::barycentric bary_test(const geometry2d::triangle& tri, const geometry2d::point& p) {
-  auto bary = geometry2d::barycentric_coordinates(p, tri);
+geometry::barycentric bary_test(const geometry::triangle& tri, const geometry::point& p) {
+  auto bary = geometry::barycentric_coordinates(p, tri);
   float interp_x = bary.w * tri.a.x + bary.u * tri.b.x + bary.v * tri.c.x;
   float interp_y = bary.w * tri.a.y + bary.u * tri.b.y + bary.v * tri.c.y;
   EXPECT_NEAR(interp_x, p.x, BARY_TEST_EPSILON);
@@ -14,16 +14,16 @@ geometry2d::barycentric bary_test(const geometry2d::triangle& tri, const geometr
   return bary;
 }
 
-void bary_test_eq(const geometry2d::triangle& tri, const geometry2d::point& p, const geometry2d::barycentric& expected) {
+void bary_test_eq(const geometry::triangle& tri, const geometry::point& p, const geometry::barycentric& expected) {
   auto bary = bary_test(tri, p);
   EXPECT_NEAR(bary.u, expected.u, BARY_TEST_EPSILON);
   EXPECT_NEAR(bary.v, expected.v, BARY_TEST_EPSILON);
   EXPECT_NEAR(bary.w, expected.w, BARY_TEST_EPSILON);
 }
 
-TEST(Geometry2D, BarycentricTest) {
+TEST(Geometry, BarycentricTest) {
   // manual tests ensuring consistency with reference values
-  geometry2d::triangle tri{{0, 0}, {1, 0}, {0, 1}};
+  geometry::triangle tri{{0, 0}, {1, 0}, {0, 1}};
 
   bary_test_eq(tri, {0, 0}, {0, 0, 1});
   bary_test_eq(tri, {1, 0}, {1, 0, 0});

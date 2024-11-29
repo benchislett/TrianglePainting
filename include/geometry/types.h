@@ -1,6 +1,6 @@
 #pragma once
 
-namespace geometry2d {
+namespace geometry {
     struct point {
         float x, y;
     };

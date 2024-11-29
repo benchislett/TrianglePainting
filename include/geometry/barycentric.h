@@ -3,7 +3,7 @@
 #include "common.h"
 #include "geometry/types.h"
 
-namespace geometry2d {
+namespace geometry {
     /*
     Barycentric coordinates in the plane relative to a triangle
     Parameterized such that `P = w * A + u * B + v * C`

@@ -221,10 +221,10 @@ int main() {
     PerfInstrumenter::register_step("GL Init");
 
     int num_tris = 5000;
-    std::vector<geometry2d::triangle> tris;
+    std::vector<geometry::triangle> tris;
 
     for (int i = 0; i < num_tris; i++) {
-        tris.emplace_back(geometry2d::triangle{
+        tris.emplace_back(geometry::triangle{
             {randf(-1, 1), randf(-1, 1)},
             {randf(-1, 1), randf(-1, 1)},
             {randf(-1, 1), randf(-1, 1)}
@@ -239,7 +239,7 @@ int main() {
     glBindVertexArray(VAO);
     
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(geometry2d::triangle) * tris.size(), (const float*)tris.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(geometry::triangle) * tris.size(), (const float*)tris.data(), GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
