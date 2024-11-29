@@ -45,7 +45,7 @@ namespace raster {
             }
         }
     }
-      
+
     /* Generic 2D Triangle Rasterization 
      * Given an arbitrary shader object, call `shader.render_pixel(x, y)` for each pixel in the `triangle`
      * assuming an image domain of size `width` x `height`. 
