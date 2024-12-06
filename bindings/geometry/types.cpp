@@ -20,7 +20,7 @@ void init_geometry_types(nb::module_& m)
         .def_rw("c", &geometry::triangle::c)
         .def("__getitem__", [](geometry::triangle &t, int i) {
             return t[i];
-        }, nb::rv_policy::reference_internal)
+        })
         .def("__setitem__", [](geometry::triangle &t, int i, const geometry::point &p) {
             t[i] = p;
         })
