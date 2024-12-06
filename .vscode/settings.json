@@ -46,7 +46,12 @@
         "streambuf": "cpp",
         "typeinfo": "cpp",
         "format": "cpp",
-        "__nullptr": "cpp"
+        "__nullptr": "cpp",
+        "cwctype": "cpp",
+        "iostream": "cpp",
+        "numbers": "cpp",
+        "ranges": "cpp",
+        "span": "cpp"
     },
     "cmake.configureSettings": {
         "Python_EXECUTABLE": "${workspaceFolder}/.venv/bin/python"
