@@ -25,11 +25,7 @@ void init_geometry_barycentrics(nb::module_& m)
         .def_rw("u", &geometry::barycentric::u)
         .def_rw("v", &geometry::barycentric::v)
         .def_rw("w", &geometry::barycentric::w)
-        .def("__repr__", [](const geometry::barycentric &b) {
-            return "<Barycentric u=" + std::to_string(b.u) + 
-                   ", v=" + std::to_string(b.v) + 
-                   ", w=" + std::to_string(b.w) + ">";
-        });
+        .def("__repr__", &geometry::barycentric::__repr__);
 
     m.def("barycentric_coordinates", &geometry::barycentric_coordinates,
           "sample_point"_a, "triangle"_a);

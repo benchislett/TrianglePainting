@@ -10,6 +10,12 @@ namespace geometry {
     */
     struct barycentric {
         float u, v, w;
+
+        std::string __repr__() const {
+            return "<Barycentric u=" + std::to_string(u) + 
+                    ", v=" + std::to_string(v) + 
+                    ", w=" + std::to_string(w) + ">";
+        }
     };
 
     PURE barycentric barycentric_coordinates(const point& p, const triangle& t);
