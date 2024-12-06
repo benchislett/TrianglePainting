@@ -244,18 +244,14 @@ io::Image<io::RGBA255> render_drawing(const Drawing& d, int width, int height) {
     return image;
 }
 
-unsigned long long int compute_fitness(const Drawing& d, const io::Image<io::RGBA255>& target) {
-    auto image = render_drawing(d, target.width, target.height);
+unsigned long long int compute_fitness(const Drawing& d, const io::ImageView<io::RGBA255>& target) {
+    auto image = render_drawing(d, target.width(), target.height());
     long long int fitness = 0;
 
-    for (int i = 0; i < target.width * target.height; i++) {
-        auto pixel_source = image.data[i];
-        auto pixel_target = target.data[i];
+    for (int i = 0; i < target.size(); i++) {
+        auto pixel_source = image[i];
+        auto pixel_target = target[i];
         fitness += l2_difference(pixel_source, pixel_target);
-        // int delta_r = pixel_source.r - pixel_target.r;
-        // int delta_g = pixel_source.g - pixel_target.g;
-        // int delta_b = pixel_source.b - pixel_target.b;
-        // fitness += (unsigned int)(delta_r * delta_r + delta_g * delta_g + delta_b * delta_b);
     }
 
     return fitness;
@@ -265,13 +261,13 @@ bool pixels_equal(const io::RGBA255& a, const io::RGBA255& b) {
     return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
 }
 
-bool images_equal(const io::Image<io::RGBA255>& a, const io::Image<io::RGBA255>& b) {
-    if (a.width != b.width || a.height != b.height) {
+bool images_equal(const io::ImageView<io::RGBA255>& a, const io::ImageView<io::RGBA255>& b) {
+    if (a.width() != b.width() || a.height() != b.height()) {
         return false;
     }
 
-    for (int i = 0; i < a.width * a.height; i++) {
-        if (!pixels_equal(a.data[i], b.data[i])) {
+    for (int i = 0; i < a.size(); i++) {
+        if (!pixels_equal(a[i], b[i])) {
             return false;
         }
     }
@@ -292,16 +288,16 @@ int main() {
     int tick_frequency = total_iterations / total_tick_messages + (total_iterations % total_tick_messages != 0);
 
     unsigned long long int current_fitness = compute_fitness(d, target);
-    double accuracy = 1.0 - (double)current_fitness / (255.0 * 255.0 * 3.0 * target.width * target.height);
+    double accuracy = 1.0 - (double)current_fitness / (255.0 * 255.0 * 3.0 * target.size());
     for (int i = 0; i < total_iterations; i++) {
 
         std::vector<Drawing> candidates(Settings::polygonsMax, d);
 
-        auto image = render_drawing(d, target.width, target.height);
+        auto image = render_drawing(d, target.width(), target.height());
 
         for (int j = 0; j < Settings::polygonsMax; j++) {
-            io::Image<io::RGBA255> background(target.width, target.height, io::RGBA255{0, 0, 0, 255});
-            io::Image<io::RGBA255> foreground(target.width, target.height, io::RGBA255{0, 0, 0, 0});
+            io::Image<io::RGBA255> background(target.width(), target.height(), io::RGBA255{0, 0, 0, 255});
+            io::Image<io::RGBA255> foreground(target.width(), target.height(), io::RGBA255{0, 0, 0, 0});
 
             for (int k = 0; k < Settings::polygonsMax; k++) {
                 if (k < j) {
@@ -312,12 +308,10 @@ int main() {
             }
 
             long long int baseline_error = 0;
-            io::Image<int> error_mask(target.width, target.height, 0);
-            for (int x = 0; x < target.width; x++) {
-                for (int y = 0; y < target.height; y++) {
-                    error_mask.data[x + y * target.width] = l2_difference(raster::composit_over_straight_255(background.data[x + y * target.width], foreground.data[x + y * target.width]), target.data[x + y * target.width]);
-                    baseline_error += error_mask.data[x + y * target.width];
-                }
+            io::Image<int> error_mask(target.width(), target.height(), 0);
+            for (int xy = 0; xy < target.size(); xy++) {
+                error_mask[xy] = l2_difference(raster::composit_over_straight_255(background[xy], foreground[xy]), target[xy]);
+                baseline_error += error_mask[xy];
             }
 
             long long int polygon_error = 0;
@@ -326,53 +320,8 @@ int main() {
                 bool dirty = mutate_polygon(tmp, tmp.polygons[j]);
                 if (!dirty) continue;
 
-                // auto tmp_test_image = render_drawing(tmp, target.width, target.height);
-                // unsigned long long int error = compute_fitness(tmp, target);
-
-                // io::Image<io::RGBA255> test_image3(target.width, target.height, io::RGBA255{0, 0, 0, 255});
-                // for (int z = 0; z < Settings::polygonsMax; z++) {
-                //     raster::rasterize_polygon_onto_image(tmp.polygons[z].vertices, tmp.polygons[z].colour, test_image3);
-                // }
-
-                // assert(images_equal(tmp_test_image, test_image3));
-
-                // io::Image<io::RGBA255> tmp_background(target.width, target.height, io::RGBA255{0, 0, 0, 255});
-                // io::Image<io::RGBA255> tmp_polygon(target.width, target.height, io::RGBA255{0, 0, 0, 0});
-                // io::Image<io::RGBA255> tmp_foreground(target.width, target.height, io::RGBA255{0, 0, 0, 0});
-                // io::Image<io::RGBA255> composited(target.width, target.height, io::RGBA255{0, 0, 0, 0});
-                // for (int z = 0; z < Settings::polygonsMax; z++) {
-                //     if (z < j) {
-                //         raster::rasterize_polygon_onto_image(tmp.polygons[z].vertices, tmp.polygons[z].colour, tmp_background);
-                //     } else if (z == j) {
-                //         raster::rasterize_polygon_onto_image(tmp.polygons[z].vertices, tmp.polygons[z].colour, tmp_polygon);
-                //     } else {
-                //         raster::rasterize_polygon_onto_image(tmp.polygons[z].vertices, tmp.polygons[z].colour, tmp_foreground);
-                //     }
-                // }
-                // for (int x = 0; x < target.width; x++) {
-                //     for (int y = 0; y < target.height; y++) {
-                //         composited.data[x + y * target.width] = raster::composit_over_straight_255(raster::composit_over_straight_255(tmp_background.data[x + y * target.width], tmp_polygon.data[x + y * target.width]), tmp_foreground.data[x + y * target.width]);
-                //         // assert (pixels_equal(composited.data[x + y * target.width], tmp_test_image.data[x + y * target.width]));
-                //     }
-                // }
-                // assert(images_equal(composited, tmp_test_image));
-
-                // io::Image<io::RGBA255> test_image = background;
-                // raster::rasterize_polygon_onto_image(tmp.polygons[j].vertices, tmp.polygons[j].colour, test_image);
-                // long long int total_test_error = 0;
-                // io::Image<io::RGBA255> test_image2(target.width, target.height, io::RGBA255{0, 0, 0, 0});
-                // for (int x = 0; x < target.width; x++) {
-                //     for (int y = 0; y < target.height; y++) {
-                //         auto pix = raster::composit_over_straight_255(test_image.data[x + y * target.width], foreground.data[x + y * target.width]);
-                //         test_image2.data[x + y * target.width] = pix;
-                //         total_test_error += l2_difference(pix, target.data[x + y * target.width]);;
-                //     }
-                // }
-
-                // assert(images_equal(test_image2, tmp_test_image));
-
                 raster::DrawLossFGShader shader(target, foreground, background, tmp.polygons[j].colour, error_mask);
-                raster::rasterize_polygon_scanline(tmp.polygons[j].vertices, target.width, target.height, shader);
+                raster::rasterize_polygon_scanline(tmp.polygons[j].vertices, target.width(), target.height(), shader);
 
                 // if (shader.total_error == 0 && error != baseline_error) {
                 //     printf("Error mismatch: %lld vs %lld\n", error, baseline_error);
@@ -396,15 +345,15 @@ int main() {
         }
 
         current_fitness = compute_fitness(d, target);
-        accuracy = 1.0 - (double)current_fitness / (255.0 * 255.0 * 3.0 * target.width * target.height);
+        accuracy = 1.0 - (double)current_fitness / (255.0 * 255.0 * 3.0 * target.size());
 
         if (i % tick_frequency == 0) {
             printf("Iteration %d/%d | Loss %llu (%.4f%%)\n", i, total_iterations, current_fitness, float(accuracy));
-            io::Image<io::RGBA255> result = render_drawing(d, target.width, target.height);
+            io::Image<io::RGBA255> result = render_drawing(d, target.width(), target.height());
             io::save_png_rgba("result.png", result);
         }
     }
 
-    io::Image<io::RGBA255> result = render_drawing(d, target.width, target.height);
+    io::Image<io::RGBA255> result = render_drawing(d, target.width(), target.height());
     io::save_png_rgba("result.png", result);
 }

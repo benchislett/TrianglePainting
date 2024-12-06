@@ -17,7 +17,7 @@ namespace raster {
      * Takes a list of triangles and respective colours and a background colour, and rasterizes them in a single draw call to the output image.
      * Overwrites any contents of the output image.
      */
-    void rasterize_triangles_to_image_opengl(const std::vector<geometry::triangle>& triangles, const std::vector<io::RGBA255>& colours, io::RGBA255 background_colour, io::Image<io::RGBA255>& image);
+    void rasterize_triangles_to_image_opengl(const std::vector<geometry::triangle>& triangles, const std::vector<io::RGBA255>& colours, io::RGBA255 background_colour, io::ImageView<io::RGBA255>& image);
 
     /* Generic 2D Triangle Rasterization 
      * Given an arbitrary shader object, call `shader.render_pixel(x, y)` for each pixel in the `triangle`
@@ -196,27 +196,27 @@ namespace raster {
     /* Standard rasterization shader. Holds a reference to an image and a fixed foreground colour.
      * When a pixel is drawn, composit that pixel over the background image.*/
     struct CompositOverImageShader {
-        io::Image<io::RGBA255>& image;
+        io::ImageView<io::RGBA255>& image;
         const io::RGBA255& colour;
 
-        CompositOverImageShader(io::Image<io::RGBA255>& image, const io::RGBA255& colour) : image(image), colour(colour) {}
+        CompositOverImageShader(io::ImageView<io::RGBA255>& image, const io::RGBA255& colour) : image(image), colour(colour) {}
 
         void render_pixel(int x, int y) {
-            image.data[x + y * image.width] = composit_over_straight_255(image.data[x + y * image.width], colour);
+            image(x, y) = composit_over_straight_255(image(x, y), colour);
         }
     };
 
     /* 2D Triangle Rasterization onto a given image. See `TriangleRasterizationMode` to select an implementation if desired. */
     template<TriangleRasterizationMode mode = TriangleRasterizationMode::Default>
-    void rasterize_triangle_onto_image(const geometry::triangle& triangle, const io::RGBA255& colour, io::Image<io::RGBA255>& image) {
+    void rasterize_triangle_onto_image(const geometry::triangle& triangle, const io::RGBA255& colour, io::ImageView<io::RGBA255>& image) {
         CompositOverImageShader shader(image, colour);
-        rasterize_triangle<CompositOverImageShader, mode>(triangle, image.width, image.height, shader);
+        rasterize_triangle<CompositOverImageShader, mode>(triangle, image.width(), image.height(), shader);
     }
 
     /* 2D Polygon Rasterization onto a given image. See `rasterize_polygon_scanline` */
-    inline void rasterize_polygon_onto_image(const std::vector<geometry::point>& polygon, const io::RGBA255& colour, io::Image<io::RGBA255>& image) {
+    inline void rasterize_polygon_onto_image(const std::vector<geometry::point>& polygon, const io::RGBA255& colour, io::ImageView<io::RGBA255>& image) {
         CompositOverImageShader shader(image, colour);
-        rasterize_polygon_scanline(polygon, image.width, image.height, shader);
+        rasterize_polygon_scanline(polygon, image.width(), image.height(), shader);
     }
 
     struct OptimalColourShader {
@@ -230,18 +230,18 @@ namespace raster {
 
         unsigned char current_alpha;
 
-        const io::Image<io::RGBA255>& target;
-        const io::Image<io::RGBA255>& foreground;
-        const io::Image<io::RGBA255>& background;
-        const io::Image<int> error_mask;
+        const io::ImageView<io::RGBA255>& target;
+        const io::ImageView<io::RGBA255>& foreground;
+        const io::ImageView<io::RGBA255>& background;
+        const io::ImageView<int> error_mask;
 
-        OptimalColourShader(unsigned char alpha, const io::Image<io::RGBA255>& target, const io::Image<io::RGBA255>& foreground, const io::Image<io::RGBA255>& background, const io::Image<int>& error_mask) 
+        OptimalColourShader(unsigned char alpha, const io::ImageView<io::RGBA255>& target, const io::ImageView<io::RGBA255>& foreground, const io::ImageView<io::RGBA255>& background, const io::ImageView<int>& error_mask) 
             : current_alpha(alpha), target(target), foreground(foreground), background(background), error_mask(error_mask) {}
 
         void render_pixel(int x, int y) {
-            io::RGBA255 target_pixel = target.data[y * target.width + x];
-            io::RGBA255 background_pixel = background.data[y * target.width + x];
-            io::RGBA255 foreground_pixel = foreground.data[y * target.width + x];
+            io::RGBA255 target_pixel = target(x, y);
+            io::RGBA255 background_pixel = background(x, y);
+            io::RGBA255 foreground_pixel = foreground(x, y);
 
 #define INT_MULT(a,b,t) ( (t) = (a) * (b) + 0x80, ( ( ( (t)>>8 ) + (t) )>>8 ) )
 #define INT_LERP(p, q, a, t) ( (p) + INT_MULT( a, ( (q) - (p) ), t ) )
@@ -272,7 +272,7 @@ namespace raster {
             a2 += a_0 * a_0;
             b2 += b_0_r * b_0_r + b_0_g * b_0_g + b_0_b * b_0_b;
 
-            error_delta -= error_mask.data[y * target.width + x];
+            error_delta -= error_mask(x, y);
         }
 
         std::pair<io::RGBA255, long long int> final_colour_and_error() const {
@@ -294,28 +294,28 @@ namespace raster {
     };
 
     struct DrawLossFGShader {
-        const io::Image<io::RGBA255>& target;
-        const io::Image<io::RGBA255>& foreground;
-        const io::Image<io::RGBA255>& background;
-        const io::Image<int>& error_mask;
+        const io::ImageView<io::RGBA255>& target;
+        const io::ImageView<io::RGBA255>& foreground;
+        const io::ImageView<io::RGBA255>& background;
+        const io::ImageView<int>& error_mask;
 
         const io::RGBA255& colour;
 
         long long int total_error = 0;
 
-        DrawLossFGShader(const io::Image<io::RGBA255>& target, const io::Image<io::RGBA255>& foreground, const io::Image<io::RGBA255>& background, const io::RGBA255& colour, const io::Image<int>& error_mask) 
+        DrawLossFGShader(const io::ImageView<io::RGBA255>& target, const io::ImageView<io::RGBA255>& foreground, const io::ImageView<io::RGBA255>& background, const io::RGBA255& colour, const io::ImageView<int>& error_mask) 
             : target(target), foreground(foreground), background(background), colour(colour), error_mask(error_mask) {}
 
         void render_pixel(int x, int y) {
-            io::RGBA255 target_pixel = target.data[y * target.width + x];
-            io::RGBA255 background_pixel = background.data[y * target.width + x];
-            io::RGBA255 foreground_pixel = foreground.data[y * target.width + x];
+            io::RGBA255 target_pixel = target(x, y);
+            io::RGBA255 background_pixel = background(x, y);
+            io::RGBA255 foreground_pixel = foreground(x, y);
 
             auto middle_pixel = composit_over_straight_255(background_pixel, colour);
             auto final_pixel = composit_over_straight_255(middle_pixel, foreground_pixel);
 
             total_error += l2_difference(target_pixel, final_pixel);
-            total_error -= error_mask.data[target.width * y + x];
+            total_error -= error_mask(x, y);
         }
     };
 };

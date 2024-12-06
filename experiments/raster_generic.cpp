@@ -41,11 +41,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    io::Image<io::RGBA255> image;
-    image.width = image_resolution;
-    image.height = image_resolution;
-    image.data.resize(image.width * image.height);
-    std::fill(image.data.begin(), image.data.end(), io::RGBA255{0, 0, 0, 255});
+    io::Image<io::RGBA255> image(image_resolution, image_resolution, io::RGBA255{0, 0, 0, 255});
 
     auto start = std::chrono::high_resolution_clock::now();
 

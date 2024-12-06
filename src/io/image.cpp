@@ -75,40 +75,36 @@ namespace io {
 
     Image<RGB01> to_rgb01(const Image<RGB255> &image)
     {
-        Image<RGB01> out(image.width, image.height);
-        for (auto &pixel : image.data)
-        {
-            out.data.push_back(to_rgb01(pixel));
+        Image<RGB01> out(image.width(), image.height());
+        for (int i = 0; i < image.size(); i++) {
+            out[i] = to_rgb01(image[i]);
         }
         return out;
     };
 
     Image<RGBA01> to_rgba01(const Image<RGBA255> &image)
     {
-        Image<RGBA01> out(image.width, image.height);
-        for (auto &pixel : image.data)
-        {
-            out.data.push_back(to_rgba01(pixel));
+        Image<RGBA01> out(image.width(), image.height());
+        for (int i = 0; i < image.size(); i++) {
+            out[i] = to_rgba01(image[i]);
         }
         return out;
     };
 
     Image<RGB255> to_rgb255(const Image<RGB01> &image)
     {
-        Image<RGB255> out(image.width, image.height);
-        for (auto &pixel : image.data)
-        {
-            out.data.push_back(to_rgb255(pixel));
+        Image<RGB255> out(image.width(), image.height());
+        for (int i = 0; i < image.size(); i++) {
+            out[i] = to_rgb255(image[i]);
         }
         return out;
     };
 
     Image<RGBA255> to_rgba255(const Image<RGBA01> &image)
     {
-        Image<RGBA255> out(image.width, image.height);
-        for (auto &pixel : image.data)
-        {
-            out.data.push_back(to_rgba255(pixel));
+        Image<RGBA255> out(image.width(), image.height());
+        for (int i = 0; i < image.size(); i++) {
+            out[i] = to_rgba255(image[i]);
         }
         return out;
     };

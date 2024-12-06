@@ -248,11 +248,7 @@ bool mutate_drawing(Drawing& d) {
 }
 
 io::Image<io::RGBA255> render_drawing(const Drawing& d, int width, int height) {
-    io::Image<io::RGBA255> image;
-    image.width = width;
-    image.height = height;
-    image.data.resize(width * height);
-    std::fill(image.data.begin(), image.data.end(), io::RGBA255{0, 0, 0, 255});
+    io::Image<io::RGBA255> image(width, height, io::RGBA255{0, 0, 0, 255});
 
     for (const auto& polygon : d.polygons) {
         raster::rasterize_polygon_onto_image(polygon.vertices, polygon.colour, image);
@@ -261,13 +257,13 @@ io::Image<io::RGBA255> render_drawing(const Drawing& d, int width, int height) {
     return image;
 }
 
-unsigned long long int compute_fitness(const Drawing& d, const io::Image<io::RGB255>& target) {
-    auto image = render_drawing(d, target.width, target.height);
+unsigned long long int compute_fitness(const Drawing& d, const io::ImageView<io::RGB255>& target) {
+    auto image = render_drawing(d, target.width(), target.height());
     unsigned long long int fitness = 0;
 
-    for (int i = 0; i < target.width * target.height; i++) {
-        auto pixel_source = image.data[i];
-        auto pixel_target = target.data[i];
+    for (int i = 0; i < target.size(); i++) {
+        auto pixel_source = image[i];
+        auto pixel_target = target[i];
         int delta_r = pixel_source.r - pixel_target.r;
         int delta_g = pixel_source.g - pixel_target.g;
         int delta_b = pixel_source.b - pixel_target.b;
@@ -303,15 +299,15 @@ int main() {
         }
 
         if (i % tick_frequency == 0) {
-            double accuracy = 1.0 - (double)current_fitness / (255.0 * 255.0 * 3.0 * target.width * target.height);
+            double accuracy = 1.0 - (double)current_fitness / (255.0 * 255.0 * 3.0 * target.size());
             printf("Iteration %d/%d | Loss %llu (%.4f%%)\n", i, total_iterations, current_fitness, float(accuracy));
-            io::Image<io::RGBA255> result = render_drawing(d, target.width, target.height);
+            io::Image<io::RGBA255> result = render_drawing(d, target.width(), target.height());
             io::save_png_rgba("result.png", result);
         }
     }
 
     printf("Accepted iterations: %d (%.2f%%)\n", accepted_mutations, (float)accepted_mutations / total_iterations * 100.0f);
 
-    io::Image<io::RGBA255> result = render_drawing(d, target.width, target.height);
+    io::Image<io::RGBA255> result = render_drawing(d, target.width(), target.height());
     io::save_png_rgba("result.png", result);
 }

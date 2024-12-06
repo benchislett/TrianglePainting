@@ -273,7 +273,7 @@ int main() {
     GLuint texture;
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, textureIm.width, textureIm.height, 0, GL_RGB, GL_UNSIGNED_BYTE, textureIm.data.data());
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, textureIm.width(), textureIm.height(), 0, GL_RGB, GL_UNSIGNED_BYTE, textureIm.data());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
@@ -366,7 +366,7 @@ int main() {
         glPixelStorei(GL_PACK_ALIGNMENT, 1);
         glReadBuffer(GL_BACK_LEFT);
 
-        glReadPixels(0, 0, output.width, output.height, GL_RGBA, GL_UNSIGNED_BYTE, (unsigned char*)output.data.data());
+        glReadPixels(0, 0, output.width(), output.height(), GL_RGBA, GL_UNSIGNED_BYTE, (unsigned char*)output.data());
 
         PerfInstrumenter::register_step("GL Read Pixels");
 

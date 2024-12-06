@@ -8,28 +8,24 @@
 #include <random>
 #include <algorithm>
 
-long long int image_delta(const io::Image<io::RGBA255>& a, const io::Image<io::RGBA255>& b) {
+long long int image_delta(const io::ImageView<io::RGBA255>& a, const io::ImageView<io::RGBA255>& b) {
     long long int delta = 0;
-    for (int i = 0; i < a.width; i++) {
-        for (int j = 0; j < a.height; j++) {
-            int delta_r = a.data[i * a.width + j].r - b.data[i * b.width + j].r;
-            int delta_g = a.data[i * a.width + j].g - b.data[i * b.width + j].g;
-            int delta_b = a.data[i * a.width + j].b - b.data[i * b.width + j].b;
-            delta += delta_r * delta_r + delta_g * delta_g + delta_b * delta_b;
-        }
+    for (int i = 0; i < a.size(); i++) {
+        int delta_r = a[i].r - b[i].r;
+        int delta_g = a[i].g - b[i].g;
+        int delta_b = a[i].b - b[i].b;
+        delta += delta_r * delta_r + delta_g * delta_g + delta_b * delta_b;
     }
     return delta;
 }
 
-io::Image<int> image_delta_mask(const io::Image<io::RGBA255>& a, const io::Image<io::RGBA255>& b) {
-    auto mask = io::Image<int>(a.width, a.height, 0);
-    for (int i = 0; i < a.width; i++) {
-        for (int j = 0; j < a.height; j++) {
-            int delta_r = a.data[i * a.width + j].r - b.data[i * b.width + j].r;
-            int delta_g = a.data[i * a.width + j].g - b.data[i * b.width + j].g;
-            int delta_b = a.data[i * a.width + j].b - b.data[i * b.width + j].b;
-            mask.data[i * a.width + j] = delta_r * delta_r + delta_g * delta_g + delta_b * delta_b;
-        }
+io::Image<int> image_delta_mask(const io::ImageView<io::RGBA255>& a, const io::ImageView<io::RGBA255>& b) {
+    auto mask = io::Image<int>(a.width(), a.height(), 0);
+    for (int i = 0; i < a.size(); i++) {
+        int delta_r = a[i].r - b[i].r;
+        int delta_g = a[i].g - b[i].g;
+        int delta_b = a[i].b - b[i].b;
+        mask[i] = delta_r * delta_r + delta_g * delta_g + delta_b * delta_b;
     }
     return mask;
 }
@@ -37,8 +33,8 @@ io::Image<int> image_delta_mask(const io::Image<io::RGBA255>& a, const io::Image
 int main() {
     io::Image<io::RGBA255> target = io::load_png_rgba("target.png");
 
-    int width = target.width;
-    assert (width == target.height);
+    int width = target.width();
+    assert (width == target.height());
 
     io::Image<io::RGBA255> background = io::Image<io::RGBA255>(width, width, io::RGBA255{0, 0, 16, 255});
     io::Image<io::RGBA255> foreground = io::Image<io::RGBA255>(width, width, io::RGBA255{0, 0, 130, 16});
@@ -46,7 +42,7 @@ int main() {
     unsigned char alpha = 16;
 
     auto initial_colour = io::RGBA255{100, 100, 50, alpha};
-    auto initial_composited_pixel = raster::composit_over_straight_255(raster::composit_over_straight_255(background.data[0], initial_colour), foreground.data[0]);
+    auto initial_composited_pixel = raster::composit_over_straight_255(raster::composit_over_straight_255(background[0], initial_colour), foreground[0]);
 
     long long int initial_error = image_delta(target, io::Image<io::RGBA255>(width, width, initial_composited_pixel));
     auto initial_error_mask = image_delta_mask(target, io::Image<io::RGBA255>(width, width, initial_composited_pixel));
@@ -59,7 +55,7 @@ int main() {
     }
 
     auto [final_colour, error_delta] = shader.final_colour_and_error();
-    auto final_composited_pixel = raster::composit_over_straight_255(raster::composit_over_straight_255(background.data[0], final_colour), foreground.data[0]);
+    auto final_composited_pixel = raster::composit_over_straight_255(raster::composit_over_straight_255(background[0], final_colour), foreground[0]);
 
     long long int new_error = image_delta(target, io::Image<io::RGBA255>(width, width, final_composited_pixel));
     auto new_error_mask = image_delta_mask(target, io::Image<io::RGBA255>(width, width, final_composited_pixel));
@@ -76,7 +72,7 @@ int main() {
     io::RGBA255 test_colour = final_colour;
     for (int b = 0; b < 255; b++) {
         test_colour.b = (unsigned char)b;
-        auto test_composited_pixel = raster::composit_over_straight_255(raster::composit_over_straight_255(background.data[0], test_colour), foreground.data[0]);
+        auto test_composited_pixel = raster::composit_over_straight_255(raster::composit_over_straight_255(background[0], test_colour), foreground[0]);
         long long int test_error = image_delta(target, io::Image<io::RGBA255>(width, width, test_composited_pixel));
         printf("%lld,", test_error);
     }

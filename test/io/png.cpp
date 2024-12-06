@@ -16,21 +16,21 @@ TEST(IO, PNG) {
         std::ifstream f(data_prefix + name + ".json");
         auto ref_json = nlohmann::json::parse(f);
         io::Image<io::RGBA255> img = io::load_png_rgba(data_prefix + name + ".png");
-        for (int i = 0; i < img.width * img.height; i++) {
-            EXPECT_EQ(img.data[i].r, ref_json[4*i+0]);
-            EXPECT_EQ(img.data[i].g, ref_json[4*i+1]);
-            EXPECT_EQ(img.data[i].b, ref_json[4*i+2]);
-            EXPECT_EQ(img.data[i].a, ref_json[4*i+3]);
+        for (int i = 0; i < img.size(); i++) {
+            EXPECT_EQ(img[i].r, ref_json[4*i+0]);
+            EXPECT_EQ(img[i].g, ref_json[4*i+1]);
+            EXPECT_EQ(img[i].b, ref_json[4*i+2]);
+            EXPECT_EQ(img[i].a, ref_json[4*i+3]);
         }
 
         io::save_png_rgba(temp_prefix + name + ".png", img);
         io::Image<io::RGBA255> new_img = io::load_png_rgba(temp_prefix + name + ".png");
 
-        for (int i = 0; i < new_img.width * new_img.height; i++) {
-            EXPECT_EQ(new_img.data[i].r, ref_json[4*i+0]);
-            EXPECT_EQ(new_img.data[i].g, ref_json[4*i+1]);
-            EXPECT_EQ(new_img.data[i].b, ref_json[4*i+2]);
-            EXPECT_EQ(new_img.data[i].a, ref_json[4*i+3]);
+        for (int i = 0; i < new_img.size(); i++) {
+            EXPECT_EQ(new_img[i].r, ref_json[4*i+0]);
+            EXPECT_EQ(new_img[i].g, ref_json[4*i+1]);
+            EXPECT_EQ(new_img[i].b, ref_json[4*i+2]);
+            EXPECT_EQ(new_img[i].a, ref_json[4*i+3]);
         }
 
         std::remove((temp_prefix + name + ".png").c_str());

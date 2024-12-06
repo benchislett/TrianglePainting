@@ -302,7 +302,7 @@ void gl_upload_triangles(const std::vector<geometry::triangle>& triangles) {
 void gl_upload_texture(const io::Image<io::RGB255>& tex) {
     glBindTexture(GL_TEXTURE_2D, GLState::textureID);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tex.width, tex.height, 0, GL_RGB, GL_UNSIGNED_BYTE, tex.data.data());
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tex.width(), tex.height(), 0, GL_RGB, GL_UNSIGNED_BYTE, tex.data());
 
     GLint texLoc = glGetUniformLocation(GLState::programid, "tex");
 
@@ -329,22 +329,17 @@ void gl_get_pixels(io::Image<io::RGBA255> output) {
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
     glReadBuffer(GL_BACK_LEFT);
 
-    glReadPixels(0, 0, output.width, output.height, GL_RGBA, GL_UNSIGNED_BYTE, (unsigned char*)output.data.data());
+    glReadPixels(0, 0, output.width(), output.height(), GL_RGBA, GL_UNSIGNED_BYTE, (unsigned char*)output.data());
 }
 
 int main(int argc, char** argv) {
     int image_resolution = 128;
 
-    io::Image<io::RGBA255> image;
-    image.width = image_resolution;
-    image.height = image_resolution;
-
-    image.data.resize(image.width * image.height);
-    std::fill(image.data.begin(), image.data.end(), io::RGBA255{100, 0, 0, 255});
+    io::Image<io::RGBA255> image(image_resolution, image_resolution, io::RGBA255{100, 0, 0, 255});
 
     auto background = io::load_png_rgb("background.png");
     auto target = io::load_png_rgb("lisa.png");
-    gl_setup(image.width, image.height, target.width, target.height);
+    gl_setup(image.width(), image.height(), target.width(), target.height());
     for (int trial = 0; trial < 1; trial++) {
         int num_tris = 10000;
         std::vector<geometry::triangle> tris;
@@ -354,7 +349,7 @@ int main(int argc, char** argv) {
             tris.push_back(tri);
         }
 
-        gl_reset_ssbo(image.width, image.height, num_tris);
+        gl_reset_ssbo(image.width(), image.height(), num_tris);
         gl_upload_triangles(tris);
         gl_upload_texture(target);
         gl_draw(num_tris);

@@ -135,10 +135,10 @@ void main() {
 
 namespace raster {
 
-    void rasterize_triangles_to_image_opengl(const std::vector<geometry::triangle>& triangles, const std::vector<io::RGBA255>& colours, io::RGBA255 background_colour, io::Image<io::RGBA255>& image) {
+    void rasterize_triangles_to_image_opengl(const std::vector<geometry::triangle>& triangles, const std::vector<io::RGBA255>& colours, io::RGBA255 background_colour, io::ImageView<io::RGBA255>& image) {
         gl_setup();
 
-        glViewport(0, 0, image.width, image.height);
+        glViewport(0, 0, image.width(), image.height());
 
         GLuint fbo;
         glGenFramebuffers(1, &fbo);
@@ -148,7 +148,7 @@ namespace raster {
         GLuint texture;
         glGenTextures(1, &texture);
         glBindTexture(GL_TEXTURE_2D, texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width, image.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width(), image.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);	
@@ -229,7 +229,7 @@ namespace raster {
         glPixelStorei(GL_PACK_ALIGNMENT, 1);
         glReadBuffer(GL_BACK_LEFT);
 
-        glReadPixels(0, 0, image.width, image.height, GL_RGBA, GL_UNSIGNED_BYTE, (unsigned char*)image.data.data());
+        glReadPixels(0, 0, image.width(), image.height(), GL_RGBA, GL_UNSIGNED_BYTE, (unsigned char*)image.data());
 
         // Cleanup VBO
         glDeleteBuffers(1, &vertexbuffer);
