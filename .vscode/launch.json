@@ -19,8 +19,8 @@
             "program": "${workspaceFolder}/build/Test",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${fileDirname}",
-            "environment": [],
+            "cwd": "${workspaceFolder}",
+            "environment": [{"name": "ASAN_OPTIONS", "value": "detect_leaks=0"}],
             "externalConsole": false,
             "MIMode": "lldb"
         },
@@ -31,8 +31,8 @@
             "program": "${workspaceFolder}/build/Test",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${fileDirname}",
-            "environment": [],
+            "cwd": "${workspaceFolder}",
+            "environment": [{"name": "ASAN_OPTIONS", "value": "detect_leaks=0"}],
             "externalConsole": false,
             "MIMode": "gdb"
         }
