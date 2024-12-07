@@ -140,5 +140,6 @@ find_package(nanobind CONFIG REQUIRED)
 
 # add the Python bindings
 file(GLOB_RECURSE PYBINDINGS "bindings/*.cpp")
-nanobind_add_module(polypaint MODULE ${PYBINDINGS})
+nanobind_add_module(polypaint STABLE_ABI NB_STATIC ${PYBINDINGS})
 target_link_libraries(polypaint PRIVATE ${PROJECT_NAME})
+install(TARGETS polypaint LIBRARY DESTINATION polypaint)
