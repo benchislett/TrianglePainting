@@ -44,7 +44,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 file(GLOB_RECURSE HEADERS "include/*.h")
-file(GLOB_RECURSE TESTS "test/*.cpp")
+file(GLOB_RECURSE TESTS "tests_cpp/*.cpp")
 
 if(USE_CUDA)
   file(GLOB_RECURSE CUDA_SOURCES "src/*.cu")
