@@ -5,6 +5,10 @@ project(PolyPaintLib LANGUAGES CXX)
 
 option(USE_CUDA "Use CUDA" ON)
 
+if(APPLE)
+  set(USE_CUDA OFF)
+endif()
+
 if(USE_CUDA)
   message("Enabling CUDA")
   enable_language(CUDA)
