@@ -1,5 +1,7 @@
 #include "io/png.h"
 
+#include "lodepng.h"
+
 #include <iostream>
 #include <algorithm>
 #include <cassert>

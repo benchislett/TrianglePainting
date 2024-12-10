@@ -1,7 +1,5 @@
 #pragma once
 
-#include "lodepng.h"
-
 #include "io/image.h"
 
 #include <string>
