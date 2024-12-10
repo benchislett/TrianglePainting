@@ -3,6 +3,7 @@
 #include <vector>
 #include <algorithm>
 #include <cassert>
+#include <utility>
 
 namespace io {
     struct RGB01 {
@@ -156,6 +157,12 @@ namespace io {
             this->m_height = other.height();
             other.invalidate();
             return *this;
+        }
+
+        ImageView<PixelT> release_view() noexcept {
+            ImageView<PixelT> view = {this->m_data, this->m_width, this->m_height};
+            this->invalidate();
+            return view;
         }
 
     private:
