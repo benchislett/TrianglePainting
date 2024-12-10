@@ -51,7 +51,8 @@
         "iostream": "cpp",
         "numbers": "cpp",
         "ranges": "cpp",
-        "span": "cpp"
+        "span": "cpp",
+        "cassert": "cpp"
     },
     "cmake.configureSettings": {
         "Python_EXECUTABLE": "${workspaceFolder}/.venv/bin/python"
