@@ -7,6 +7,27 @@
 
 #include <cassert>
 
+using PyRGB = nanobind::ndarray<uint8_t, nanobind::shape<3>, nanobind::c_contig, nanobind::device::cpu>;
+using PyRGBA = nanobind::ndarray<uint8_t, nanobind::shape<4>, nanobind::c_contig, nanobind::device::cpu>;
+using PyRGBFloat = nanobind::ndarray<float, nanobind::shape<3>, nanobind::c_contig, nanobind::device::cpu>;
+using PyRGBAFloat = nanobind::ndarray<float, nanobind::shape<4>, nanobind::c_contig, nanobind::device::cpu>;
+
+inline io::RGB255 depythonize_rgb255(PyRGB rgb) {
+    return io::RGB255(rgb.data()[0], rgb.data()[1], rgb.data()[2]);
+}
+
+inline io::RGBA255 depythonize_rgba255(PyRGBA rgba) {
+    return io::RGBA255(rgba.data()[0], rgba.data()[1], rgba.data()[2], rgba.data()[3]);
+}
+
+inline io::RGB01 depythonize_rgb01(PyRGBFloat rgb) {
+    return io::RGB01(rgb.data()[0], rgb.data()[1], rgb.data()[2]);
+}
+
+inline io::RGBA01 depythonize_rgba01(PyRGBAFloat rgba) {
+    return io::RGBA01(rgba.data()[0], rgba.data()[1], rgba.data()[2], rgba.data()[3]);
+}
+
 using PyImageRGB = nanobind::ndarray<uint8_t, nanobind::shape<-1, -1, 3>, nanobind::c_contig, nanobind::device::cpu>;
 using PyImageRGBA = nanobind::ndarray<uint8_t, nanobind::shape<-1, -1, 4>, nanobind::c_contig, nanobind::device::cpu>;
 using PyImageRGBFloat = nanobind::ndarray<float, nanobind::shape<-1, -1, 3>, nanobind::c_contig, nanobind::device::cpu>;

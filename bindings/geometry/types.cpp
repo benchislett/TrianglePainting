@@ -14,7 +14,7 @@ void init_geometry_types(nb::module_& m)
         .def("__repr__", &geometry::point::__repr__);
 
     nb::class_<geometry::triangle>(m, "Triangle")
-        .def(nb::init<>())  // Default constructor
+        .def(nb::init<geometry::point, geometry::point, geometry::point>())  // Default constructor
         .def_rw("a", &geometry::triangle::a)
         .def_rw("b", &geometry::triangle::b)
         .def_rw("c", &geometry::triangle::c)

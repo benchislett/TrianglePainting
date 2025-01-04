@@ -52,7 +52,8 @@
         "numbers": "cpp",
         "ranges": "cpp",
         "span": "cpp",
-        "cassert": "cpp"
+        "cassert": "cpp",
+        "ios": "cpp"
     },
     "cmake.configureSettings": {
         "Python_EXECUTABLE": "${workspaceFolder}/.venv/bin/python"

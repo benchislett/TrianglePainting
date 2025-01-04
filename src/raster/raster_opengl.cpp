@@ -135,7 +135,7 @@ void main() {
 
 namespace raster {
 
-    void rasterize_triangles_to_image_opengl(const std::vector<geometry::triangle>& triangles, const std::vector<io::RGBA255>& colours, io::RGBA255 background_colour, io::ImageView<io::RGBA255>& image) {
+    void rasterize_triangles_to_image_opengl(const std::vector<geometry::triangle>& triangles, const std::vector<io::RGBA255>& colours, io::RGBA255 background_colour, io::ImageView<io::RGBA255> image) {
         gl_setup();
 
         glViewport(0, 0, image.width(), image.height());

@@ -17,7 +17,7 @@ namespace raster {
      * Takes a list of triangles and respective colours and a background colour, and rasterizes them in a single draw call to the output image.
      * Overwrites any contents of the output image.
      */
-    void rasterize_triangles_to_image_opengl(const std::vector<geometry::triangle>& triangles, const std::vector<io::RGBA255>& colours, io::RGBA255 background_colour, io::ImageView<io::RGBA255>& image);
+    void rasterize_triangles_to_image_opengl(const std::vector<geometry::triangle>& triangles, const std::vector<io::RGBA255>& colours, io::RGBA255 background_colour, io::ImageView<io::RGBA255> image);
 
     /* Generic 2D Triangle Rasterization 
      * Given an arbitrary shader object, call `shader.render_pixel(x, y)` for each pixel in the `triangle`
@@ -196,10 +196,10 @@ namespace raster {
     /* Standard rasterization shader. Holds a reference to an image and a fixed foreground colour.
      * When a pixel is drawn, composit that pixel over the background image.*/
     struct CompositOverImageShader {
-        io::ImageView<io::RGBA255>& image;
+        io::ImageView<io::RGBA255> image;
         const io::RGBA255& colour;
 
-        CompositOverImageShader(io::ImageView<io::RGBA255>& image, const io::RGBA255& colour) : image(image), colour(colour) {}
+        CompositOverImageShader(io::ImageView<io::RGBA255> image, const io::RGBA255& colour) : image(image), colour(colour) {}
 
         void render_pixel(int x, int y) {
             image(x, y) = composit_over_straight_255(image(x, y), colour);
@@ -208,13 +208,13 @@ namespace raster {
 
     /* 2D Triangle Rasterization onto a given image. See `TriangleRasterizationMode` to select an implementation if desired. */
     template<TriangleRasterizationMode mode = TriangleRasterizationMode::Default>
-    void rasterize_triangle_onto_image(const geometry::triangle& triangle, const io::RGBA255& colour, io::ImageView<io::RGBA255>& image) {
+    void rasterize_triangle_onto_image(const geometry::triangle& triangle, const io::RGBA255& colour, io::ImageView<io::RGBA255> image) {
         CompositOverImageShader shader(image, colour);
         rasterize_triangle<CompositOverImageShader, mode>(triangle, image.width(), image.height(), shader);
     }
 
     /* 2D Polygon Rasterization onto a given image. See `rasterize_polygon_scanline` */
-    inline void rasterize_polygon_onto_image(const std::vector<geometry::point>& polygon, const io::RGBA255& colour, io::ImageView<io::RGBA255>& image) {
+    inline void rasterize_polygon_onto_image(const std::vector<geometry::point>& polygon, const io::RGBA255& colour, io::ImageView<io::RGBA255> image) {
         CompositOverImageShader shader(image, colour);
         rasterize_polygon_scanline(polygon, image.width(), image.height(), shader);
     }
@@ -230,9 +230,9 @@ namespace raster {
 
         unsigned char current_alpha;
 
-        const io::ImageView<io::RGBA255>& target;
-        const io::ImageView<io::RGBA255>& foreground;
-        const io::ImageView<io::RGBA255>& background;
+        const io::ImageView<io::RGBA255> target;
+        const io::ImageView<io::RGBA255> foreground;
+        const io::ImageView<io::RGBA255> background;
         const io::ImageView<int> error_mask;
 
         OptimalColourShader(unsigned char alpha, const io::ImageView<io::RGBA255>& target, const io::ImageView<io::RGBA255>& foreground, const io::ImageView<io::RGBA255>& background, const io::ImageView<int>& error_mask) 
@@ -294,10 +294,10 @@ namespace raster {
     };
 
     struct DrawLossFGShader {
-        const io::ImageView<io::RGBA255>& target;
-        const io::ImageView<io::RGBA255>& foreground;
-        const io::ImageView<io::RGBA255>& background;
-        const io::ImageView<int>& error_mask;
+        io::ImageView<io::RGBA255> target;
+        io::ImageView<io::RGBA255> foreground;
+        io::ImageView<io::RGBA255> background;
+        io::ImageView<int> error_mask;
 
         const io::RGBA255& colour;
 
