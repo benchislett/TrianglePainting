@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cassert>
+
 #ifdef __CUDACC__
 // CUDA-specific code
 
@@ -44,3 +46,21 @@ inline void __cublasSafeCall(cublasStatus_t err, const char *file, const int lin
 #endif
 
 #define PURE [[nodiscard]] __host__ __device__
+
+void debug_check_ptr(const void* ptr) {
+#ifdef NDEBUG
+    (void)ptr;
+#else
+    assert(ptr);
+#endif
+}
+
+void debug_check_range(int x, int min, int max) {
+#ifdef NDEBUG
+    (void)x;
+    (void)min;
+    (void)max;
+#else
+    assert(x >= min && x < max);
+#endif
+}
