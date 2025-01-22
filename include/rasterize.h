@@ -3,16 +3,6 @@
 #include "shaders.h"
 #include "geometry.h"
 
-
-/* A full but less-configurable 2D triangle rasterization reference using a hidden OpenGL window. 
-    * Takes a list of triangles and respective colours and a background colour, and rasterizes them in a single draw call to the output image.
-    * Overwrites any contents of the output image.
-    */
-
-// TODO: Update the types here
-
-// void rasterize_triangles_to_image_opengl(const std::vector<Triangle>& triangles, const std::vector<RGBA255>& colours, RGBA255 background_colour, ImageView<RGBA255> image);
-
 /* Generic 2D Triangle Rasterization 
     * Given an arbitrary shader object, call `shader.render_pixel(x, y)` for each pixel in the `triangle`
     * assuming an image domain of size `width` x `height`. 
@@ -155,5 +145,3 @@ void rasterize_polygon_scanline(const Polygon<N>& polygon, int width, int height
             if (nodeX[i+1]> width) nodeX[i+1]=width;
             for (pixelX=nodeX[i]; pixelX<nodeX[i+1]; pixelX++) shader.render_pixel(pixelX,pixelY); }}}
 }
-
-// TODO: Update the wrappers for rasterization configuration

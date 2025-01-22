@@ -113,20 +113,20 @@ gtest_discover_tests(Test)
 
 # set up experiments
 # create an executable for each .cpp source file in folder "experiments"
-file(GLOB_RECURSE EXPERIMENTS "experiments/*.cpp")
-file(GLOB_RECURSE EXPERIMENT_HEADERS "experiments/*.h")
+# file(GLOB_RECURSE EXPERIMENTS "experiments/*.cpp")
+# file(GLOB_RECURSE EXPERIMENT_HEADERS "experiments/*.h")
 
-if(USE_CUDA)
-  file(GLOB_RECURSE CUDA_EXPERIMENTS "experiments/*.cu")
-  list(APPEND EXPERIMENTS ${CUDA_EXPERIMENTS})
-endif()
+# if(USE_CUDA)
+#   file(GLOB_RECURSE CUDA_EXPERIMENTS "experiments/*.cu")
+#   list(APPEND EXPERIMENTS ${CUDA_EXPERIMENTS})
+# endif()
 
-foreach(EXPERIMENT ${EXPERIMENTS})
-  get_filename_component(EXPERIMENT_NAME ${EXPERIMENT} NAME_WE)
-  add_executable(${EXPERIMENT_NAME} ${EXPERIMENT} ${EXPERIMENT_HEADERS})
-  target_link_libraries(${EXPERIMENT_NAME} ${PROJECT_NAME})
-  target_include_directories(${EXPERIMENT_NAME} PUBLIC experiments)
-endforeach()
+# foreach(EXPERIMENT ${EXPERIMENTS})
+#   get_filename_component(EXPERIMENT_NAME ${EXPERIMENT} NAME_WE)
+#   add_executable(${EXPERIMENT_NAME} ${EXPERIMENT} ${EXPERIMENT_HEADERS})
+#   target_link_libraries(${EXPERIMENT_NAME} ${PROJECT_NAME})
+#   target_include_directories(${EXPERIMENT_NAME} PUBLIC experiments)
+# endforeach()
 
 # set up python bindings
 if (CMAKE_VERSION VERSION_LESS 3.18)
@@ -138,16 +138,16 @@ endif()
 find_package(Python 3.8 COMPONENTS Interpreter ${DEV_MODULE} REQUIRED)
 
 # Detect the installed nanobind package and import it into CMake
-message( "${Python_EXECUTABLE}" )
-execute_process(
-  COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
-  OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE nanobind_ROOT)
-find_package(nanobind CONFIG REQUIRED)
+# message( "${Python_EXECUTABLE}" )
+# execute_process(
+#   COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
+#   OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE nanobind_ROOT)
+# find_package(nanobind CONFIG REQUIRED)
 
-# add the Python bindings
-file(GLOB_RECURSE PYBINDINGS "bindings/*.cpp")
-file(GLOB_RECURSE PYHEADERS "bindings/*.h")
-nanobind_add_module(polypaint STABLE_ABI NB_STATIC ${PYBINDINGS} ${PYHEADERS})
-target_link_libraries(polypaint PRIVATE ${PROJECT_NAME})
-target_include_directories(polypaint PRIVATE bindings)
-install(TARGETS polypaint LIBRARY DESTINATION polypaint)
+# # add the Python bindings
+# file(GLOB_RECURSE PYBINDINGS "bindings/*.cpp")
+# file(GLOB_RECURSE PYHEADERS "bindings/*.h")
+# nanobind_add_module(polypaint STABLE_ABI NB_STATIC ${PYBINDINGS} ${PYHEADERS})
+# target_link_libraries(polypaint PRIVATE ${PROJECT_NAME})
+# target_include_directories(polypaint PRIVATE bindings)
+# install(TARGETS polypaint LIBRARY DESTINATION polypaint)

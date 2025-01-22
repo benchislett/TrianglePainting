@@ -20,8 +20,8 @@ template<int N>
 struct Polygon : public Shape {
     std::array<Point, N> points;
 
-    Point& operator[](int i);
-    const Point& operator[](int i) const;
+    Point& operator[](int i) { return points[i]; }
+    const Point& operator[](int i) const { return points[i]; }
 };
 
 struct Triangle : public Polygon<3> {};

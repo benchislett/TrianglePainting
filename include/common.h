@@ -47,7 +47,7 @@ inline void __cublasSafeCall(cublasStatus_t err, const char *file, const int lin
 
 #define PURE [[nodiscard]] __host__ __device__
 
-void debug_check_ptr(const void* ptr) {
+inline void debug_check_ptr(const void* ptr) {
 #ifdef NDEBUG
     (void)ptr;
 #else
@@ -55,7 +55,7 @@ void debug_check_ptr(const void* ptr) {
 #endif
 }
 
-void debug_check_range(int x, int min, int max) {
+inline void debug_check_range(int x, int min, int max) {
 #ifdef NDEBUG
     (void)x;
     (void)min;
