@@ -22,6 +22,19 @@ struct ImageShader : Shader {
     }
 };
 
+struct CompositOverShader {
+    const ImageView<RGBA255>& background;
+    const RGBA255& colour;
+
+    CompositOverShader(const ImageView<RGBA255>& bg, const RGBA255& col) : background(bg), colour(col) {}
+    
+    void render_pixel(int x, int y) {
+        RGBA255 bg_pixel = background(x, y);
+        RGBA255 out_pixel = composit_over_straight_255(bg_pixel, colour);
+        background(x, y) = out_pixel;
+    }
+};
+
 struct OptimalColourShader {
     long long int ab_r = 0;
     long long int ab_g = 0;

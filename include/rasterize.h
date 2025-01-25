@@ -13,16 +13,16 @@
     * - If the barycentric coordinates are all non-negative, shade the point. */
 template<class Shader>
 void rasterize_triangle_bounded(const Triangle& triangle, int width, int height, Shader& shader) {
-    int lower_x = std::max(0, (int)(std::min({triangle.a.x, triangle.b.x, triangle.c.x}) * width));
-    int lower_y = std::max(0, (int)(std::min({triangle.a.y, triangle.b.y, triangle.c.y}) * height));
-    int upper_x = std::min(width - 1, (int)(std::max({triangle.a.x, triangle.b.x, triangle.c.x}) * width));
-    int upper_y = std::min(height - 1, (int)(std::max({triangle.a.y, triangle.b.y, triangle.c.y}) * height));
+    int lower_x = std::max(0, (int)(std::min({triangle[0].x, triangle[1].x, triangle[2].x}) * width));
+    int lower_y = std::max(0, (int)(std::min({triangle[0].y, triangle[1].y, triangle[2].y}) * height));
+    int upper_x = std::min(width - 1, (int)(std::max({triangle[0].x, triangle[1].x, triangle[2].x}) * width));
+    int upper_y = std::min(height - 1, (int)(std::max({triangle[0].y, triangle[1].y, triangle[2].y}) * height));
 
     for (int x = lower_x; x <= upper_x; x++) {
         for (int y = lower_y; y <= upper_y; y++) {
             float u = (x + 0.5f) / (float)width;
             float v = (y + 0.5f) / (float)height;
-            auto bary = geometry::barycentric_coordinates({u, v}, triangle);
+            auto bary = barycentric_coordinates(Point{u, v}, triangle);
             if (bary.u >= 0 && bary.v >= 0 && bary.w >= 0) {
                 shader.render_pixel(x, y);
             }
@@ -42,8 +42,8 @@ void rasterize_triangle_bounded(const Triangle& triangle, int width, int height,
     */
 template<class Shader>
 void rasterize_triangle_integer(const Triangle& tri, int width, int height, Shader& shader) {
-    int xs[3] = {int(tri.a.x * width), int(tri.b.x * width), int(tri.c.x * width)};
-    int ys[3] = {int(tri.a.y * height), int(tri.b.y * height), int(tri.c.y * height)};
+    int xs[3] = {int(tri[0].x * width), int(tri[1].x * width), int(tri[2].x * width)};
+    int ys[3] = {int(tri[0].y * height), int(tri[1].y * height), int(tri[2].y * height)};
 
     // Orient the triangle correctly
     int w = (xs[1] - xs[0]) * (ys[2] - ys[0]) - (ys[1] - ys[0]) * (xs[2] - xs[0]);
@@ -111,7 +111,7 @@ void rasterize_polygon_scanline(const Polygon<N>& polygon, int width, int height
 
     int  nodes, nodeX[MAX_POLY_CORNERS], pixelX, pixelY, i, j, swap ;
 
-    int polyCorners = polygon.size();
+    int polyCorners = N;
 
     //  Loop through the rows of the image.
     for (pixelY=0; pixelY<height; pixelY++) {

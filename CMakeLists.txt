@@ -138,16 +138,16 @@ endif()
 find_package(Python 3.8 COMPONENTS Interpreter ${DEV_MODULE} REQUIRED)
 
 # Detect the installed nanobind package and import it into CMake
-# message( "${Python_EXECUTABLE}" )
-# execute_process(
-#   COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
-#   OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE nanobind_ROOT)
-# find_package(nanobind CONFIG REQUIRED)
+message( "${Python_EXECUTABLE}" )
+execute_process(
+  COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
+  OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE nanobind_ROOT)
+find_package(nanobind CONFIG REQUIRED)
 
-# # add the Python bindings
-# file(GLOB_RECURSE PYBINDINGS "bindings/*.cpp")
-# file(GLOB_RECURSE PYHEADERS "bindings/*.h")
-# nanobind_add_module(polypaint STABLE_ABI NB_STATIC ${PYBINDINGS} ${PYHEADERS})
-# target_link_libraries(polypaint PRIVATE ${PROJECT_NAME})
-# target_include_directories(polypaint PRIVATE bindings)
-# install(TARGETS polypaint LIBRARY DESTINATION polypaint)
+# add the Python bindings
+file(GLOB_RECURSE PYBINDINGS "bindings/*.cpp")
+file(GLOB_RECURSE PYHEADERS "bindings/*.h")
+nanobind_add_module(polypaint STABLE_ABI NB_STATIC ${PYBINDINGS} ${PYHEADERS})
+target_link_libraries(polypaint PRIVATE ${PROJECT_NAME})
+target_include_directories(polypaint PRIVATE bindings)
+install(TARGETS polypaint LIBRARY DESTINATION polypaint)
