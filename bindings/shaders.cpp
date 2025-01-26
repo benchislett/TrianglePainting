@@ -28,13 +28,13 @@ void init_shaders(nb::module_& m) {
                 const PyImageRGBA& t,
                 const PyImageRGBA& fg,
                 const PyImageRGBA& bg,
-                const nb::ndarray<int, nb::shape<-1, -1>, nb::c_contig, nb::device::cpu>& err) {
+                const PyMatrixInt& errmap) {
                  new (self) OptimalColourShader(
                      alpha,
                      depythonize_imageview_rgba255(t),
                      depythonize_imageview_rgba255(fg),
                      depythonize_imageview_rgba255(bg),
-                     ImageView<int>((int*) err.data(), err.shape(0), err.shape(1)));
+                     depythonize_matrix_int(errmap));
              })
         .def_prop_rw("target",
                      [](const OptimalColourShader& self) {
@@ -59,12 +59,11 @@ void init_shaders(nb::module_& m) {
                      })
         .def_prop_rw("error_mask",
                      [](const OptimalColourShader& self) {
-                         // No direct pythonize for int-type image, so omitted
-                         return 0; // Placeholder
+                         return pythonize_matrix_int(self.error_mask);
                      },
                      [](OptimalColourShader& self,
-                        const nb::ndarray<int, nb::shape<-1, -1>, nb::c_contig, nb::device::cpu>& err) {
-                         self.error_mask = ImageView<int>((int*) err.data(), err.shape(0), err.shape(1));
+                        const PyMatrixInt& err) {
+                         self.error_mask = depythonize_matrix_int(err);
                      })
         .def_prop_rw("current_alpha",
                      [](const OptimalColourShader& self) { return self.current_alpha; },
