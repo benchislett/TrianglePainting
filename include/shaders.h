@@ -23,8 +23,8 @@ struct ImageShader : Shader {
 };
 
 struct CompositOverShader {
-    const ImageView<RGBA255>& background;
-    const RGBA255& colour;
+    ImageView<RGBA255> background;
+    RGBA255 colour;
 
     CompositOverShader(const ImageView<RGBA255>& bg, const RGBA255& col) : background(bg), colour(col) {}
     
@@ -46,10 +46,10 @@ struct OptimalColourShader {
 
     unsigned char current_alpha;
 
-    const ImageView<RGBA255> target;
-    const ImageView<RGBA255> foreground;
-    const ImageView<RGBA255> background;
-    const ImageView<int> error_mask;
+    ImageView<RGBA255> target;
+    ImageView<RGBA255> foreground;
+    ImageView<RGBA255> background;
+    ImageView<int> error_mask;
 
     OptimalColourShader(unsigned char alpha, const ImageView<RGBA255>& target, const ImageView<RGBA255>& foreground, const ImageView<RGBA255>& background, const ImageView<int>& error_mask) 
         : current_alpha(alpha), target(target), foreground(foreground), background(background), error_mask(error_mask) {}
@@ -115,7 +115,7 @@ struct DrawLossFGShader {
     ImageView<RGBA255> background;
     ImageView<int> error_mask;
 
-    const RGBA255& colour;
+    RGBA255 colour;
 
     long long int total_error = 0;
 

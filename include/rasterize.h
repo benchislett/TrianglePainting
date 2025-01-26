@@ -3,27 +3,71 @@
 #include "shaders.h"
 #include "geometry.h"
 
-/* Generic 2D Triangle Rasterization 
-    * Given an arbitrary shader object, call `shader.render_pixel(x, y)` for each pixel in the `triangle`
-    * assuming an image domain of size `width` x `height`. 
+#include <memory>
+
+enum class RasterStrategy {
+    Bounded,
+    Integer,
+    ScanlinePolygon,
+    Default = Bounded
+};
+
+struct RasterConfig {
+    RasterStrategy strategy = RasterStrategy::Default;
+    int image_width = 0;
+    int image_height = 0;
+};
+
+template<class Shader>
+void rasterize(std::shared_ptr<Shape> shape, Shader& shader, const RasterConfig& config) {
+    ShapeType T = shape->type();
+
+    if (config.strategy == RasterStrategy::Bounded) {
+        if (T == ShapeType::Triangle) {
+            rasterize_shape_bounded<Shader, Triangle>(dynamic_cast<Triangle&>(*shape), config.image_width, config.image_height, shader);
+        } else if (T == ShapeType::Circle) {
+            rasterize_shape_bounded<Shader, Circle>(dynamic_cast<Circle&>(*shape), config.image_width, config.image_height, shader);
+        } else if (T == ShapeType::Polygon) {
+            rasterize_shape_bounded<Shader, Polygon>(dynamic_cast<Polygon&>(*shape), config.image_width, config.image_height, shader);
+        } else {
+            throw std::runtime_error("Unsupported shape type for rasterization.");
+        }
+    } else if (config.strategy == RasterStrategy::Integer) {
+        if (T != ShapeType::Triangle) {
+            throw std::runtime_error("Integer rasterization strategy is only supported for triangles.");
+        }
+        rasterize_triangle_integer(dynamic_cast<Triangle&>(*shape), config.image_width, config.image_height, shader);
+    } else if (config.strategy == RasterStrategy::ScanlinePolygon) {
+        if (T == ShapeType::Triangle) {
+            rasterize_polygon_scanline(dynamic_cast<Triangle&>(*shape), config.image_width, config.image_height, shader);
+        } else if (T == ShapeType::Polygon) {
+            rasterize_polygon_scanline(dynamic_cast<Polygon&>(*shape), config.image_width, config.image_height, shader);
+        } else {
+            throw std::runtime_error("Scanline polygon rasterization is only supported for triangles and polygons.");
+        }
+    } else {
+        throw std::runtime_error("Unsupported rasterization strategy.");
+    }
+}
+
+/* Generic 2D Rasterization 
+    * Given an arbitrary shader object, call `shader.render_pixel(x, y)` for each pixel in the `shape`
+    * assuming an image domain of size `width` x `height`.
     * 
     * Method: Bounded loop.
-    * - Determine the integer bounding box of the triangle within the image
-    * - For each pixel in the box, compute the barycentric coordinates at the center of that pixel w.r.t. the `triangle`
+    * - Determine the integer bounding box of the shape within the image
+    * - For each pixel in the box, compute the barycentric coordinates at the center of that pixel w.r.t. the `shape`
     * - If the barycentric coordinates are all non-negative, shade the point. */
-template<class Shader>
-void rasterize_triangle_bounded(const Triangle& triangle, int width, int height, Shader& shader) {
-    int lower_x = std::max(0, (int)(std::min({triangle[0].x, triangle[1].x, triangle[2].x}) * width));
-    int lower_y = std::max(0, (int)(std::min({triangle[0].y, triangle[1].y, triangle[2].y}) * height));
-    int upper_x = std::min(width - 1, (int)(std::max({triangle[0].x, triangle[1].x, triangle[2].x}) * width));
-    int upper_y = std::min(height - 1, (int)(std::max({triangle[0].y, triangle[1].y, triangle[2].y}) * height));
+template<class Shader, typename Shape>
+void rasterize_shape_bounded(const Shape& shape, int width, int height, Shader& shader) {
+    Point lower = shape.min();
+    Point upper = shape.max();
 
-    for (int x = lower_x; x <= upper_x; x++) {
-        for (int y = lower_y; y <= upper_y; y++) {
+    for (int x = lower.x; x <= upper.x; x++) {
+        for (int y = lower.y; y <= upper.y; y++) {
             float u = (x + 0.5f) / (float)width;
             float v = (y + 0.5f) / (float)height;
-            auto bary = barycentric_coordinates(Point{u, v}, triangle);
-            if (bary.u >= 0 && bary.v >= 0 && bary.w >= 0) {
+            if (shape.is_inside(Point{u, v})) {
                 shader.render_pixel(x, y);
             }
         }
@@ -105,13 +149,20 @@ void rasterize_triangle_integer(const Triangle& tri, int width, int height, Shad
     * 
     * Credit for the implementation goes to http://alienryderflex.com/polygon_fill/
     */
-template<class Shader, int N>
-void rasterize_polygon_scanline(const Polygon<N>& polygon, int width, int height, Shader& shader) {
+template<class Shader, typename Shape>
+void rasterize_polygon_scanline(const Shape& polygon, int width, int height, Shader& shader) {
     constexpr int MAX_POLY_CORNERS = 10;
 
-    int  nodes, nodeX[MAX_POLY_CORNERS], pixelX, pixelY, i, j, swap ;
+    int  nodes, nodeX[MAX_POLY_CORNERS], pixelX, pixelY, i, j, swap;
 
-    int polyCorners = N;
+    if constexpr (!std::is_same_v<Shape, Triangle> && !std::is_same_v<Shape, Polygon>) {
+        static_assert(false, "Unsupported shape type for scanline polygon rasterization.");
+    }
+
+    int polyCorners = polygon.num_vertices();
+    if (polyCorners > MAX_POLY_CORNERS) {
+        throw std::runtime_error("Polygon has too many corners.");
+    }
 
     //  Loop through the rows of the image.
     for (pixelY=0; pixelY<height; pixelY++) {

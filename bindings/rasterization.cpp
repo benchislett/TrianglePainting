@@ -9,32 +9,28 @@
 
 namespace nb = nanobind;
 
-enum RasterStrategy {
-    Bounded,
-    Integer,
-    ScanlinePolygon,
-    Default = Bounded
-};
-
 void init_rasterization(nb::module_& m)
 {
     nb::enum_<RasterStrategy>(m, "RasterStrategy")
         .value("Bounded", RasterStrategy::Bounded)
         .value("Integer", RasterStrategy::Integer)
         .value("ScanlinePolygon", RasterStrategy::ScanlinePolygon);
-    
-    m.def("rasterize", [](const Triangle &triangle, const PyRGBA &py_colour, PyImageRGBA py_image, RasterStrategy mode = RasterStrategy::Default) {
-        auto colour = depythonize_rgba255(py_colour);
-        auto image = depythonize_imageview_rgba255(py_image);
-        CompositOverShader shader(image, colour);
-        if (mode == RasterStrategy::Bounded) {
-            rasterize_triangle_bounded(triangle, image.width(), image.height(), shader);
-        } else if (mode == RasterStrategy::Integer) {
-            rasterize_triangle_integer(triangle, image.width(), image.height(), shader);
-        } else if (mode == RasterStrategy::ScanlinePolygon) {
-            rasterize_polygon_scanline(triangle, image.width(), image.height(), shader);
-        } else {
-            assert (0);
-        }
+
+    nb::class_<RasterConfig>(m, "RasterConfig")
+        .def(nb::init<>())
+        .def_rw("strategy", &RasterConfig::strategy)
+        .def_rw("image_width", &RasterConfig::image_width)
+        .def_rw("image_height", &RasterConfig::image_height);
+
+    m.def("rasterize", [](std::shared_ptr<Shape> shape, CompositOverShader &shader, const RasterConfig &config) {
+        rasterize<CompositOverShader>(shape, shader, config);
+    });
+
+    m.def("rasterize", [](std::shared_ptr<Shape> shape, OptimalColourShader &shader, const RasterConfig &config) {
+        rasterize<OptimalColourShader>(shape, shader, config);
+    });
+
+    m.def("rasterize", [](std::shared_ptr<Shape> shape, DrawLossFGShader &shader, const RasterConfig &config) {
+        rasterize<DrawLossFGShader>(shape, shader, config);
     });
 }

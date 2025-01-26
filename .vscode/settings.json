@@ -53,7 +53,12 @@
         "ranges": "cpp",
         "span": "cpp",
         "cassert": "cpp",
-        "ios": "cpp"
+        "ios": "cpp",
+        "complex": "cpp",
+        "valarray": "cpp",
+        "system_error": "cpp",
+        "regex": "cpp",
+        "__node_handle": "cpp"
     },
     "cmake.configureSettings": {
         "Python_EXECUTABLE": "${workspaceFolder}/.venv/bin/python"

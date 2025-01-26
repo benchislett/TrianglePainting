@@ -20,7 +20,7 @@ void init_geometry(nb::module_& m)
     nb::class_<Triangle>(m, "Triangle")
         .def("__init__", [](Triangle* t, const Point& a, const Point& b, const Point& c) {
             new (t) Triangle{}; 
-            t->points = {a, b, c};
+            t->vertices = {a, b, c};
         })
         .def("__getitem__", [](Triangle &t, int i) {
             return t[i];
