@@ -1,4 +1,5 @@
 #include <nanobind/nanobind.h>
+#include <nanobind/stl/shared_ptr.h>
 
 #include "colours.h"
 #include "geometry.h"
@@ -17,7 +18,7 @@ void init_rasterization(nb::module_& m)
         .value("ScanlinePolygon", RasterStrategy::ScanlinePolygon);
 
     nb::class_<RasterConfig>(m, "RasterConfig")
-        .def(nb::init<>())
+        .def(nb::init<RasterStrategy, int, int>())
         .def_rw("strategy", &RasterConfig::strategy)
         .def_rw("image_width", &RasterConfig::image_width)
         .def_rw("image_height", &RasterConfig::image_height);

@@ -63,8 +63,13 @@ void rasterize_shape_bounded(const Shape& shape, int width, int height, Shader& 
     Point lower = shape.min();
     Point upper = shape.max();
 
-    for (int x = lower.x; x <= upper.x; x++) {
-        for (int y = lower.y; y <= upper.y; y++) {
+    int lower_x = std::max(0, std::min(int(lower.x * width), width - 1));
+    int lower_y = std::max(0, std::min(int(lower.y * height), height - 1));
+    int upper_x = std::max(0, std::min(int(upper.x * width), width - 1));
+    int upper_y = std::max(0, std::min(int(upper.y * height), height - 1));
+
+    for (int x = lower_x; x <= upper_x; x++) {
+        for (int y = lower_y; y <= upper_y; y++) {
             float u = (x + 0.5f) / (float)width;
             float v = (y + 0.5f) / (float)height;
             if (shape.is_inside(Point{u, v})) {

@@ -9,6 +9,8 @@ namespace nb = nanobind;
 
 void init_geometry(nb::module_& m)
 {
+    nb::class_<Shape>(m, "Shape");
+
     nb::class_<Point>(m, "Point")
         .def(nb::init<float, float>())
         .def_rw("x", &Point::x)
@@ -17,7 +19,7 @@ void init_geometry(nb::module_& m)
             return std::format("Point(x={:.2f}, y={:.2f})", p.x, p.y);
         });
 
-    nb::class_<Triangle>(m, "Triangle")
+    nb::class_<Triangle, Shape>(m, "Triangle")
         .def("__init__", [](Triangle* t, const Point& a, const Point& b, const Point& c) {
             new (t) Triangle{}; 
             t->vertices = {a, b, c};
@@ -35,7 +37,7 @@ void init_geometry(nb::module_& m)
                    t[2].x, t[2].y);
         });
     
-    nb::class_<Circle>(m, "Circle")
+    nb::class_<Circle, Shape>(m, "Circle")
         .def("__init__", [](Circle* t, const Point& center, float radius) {
             new (t) Circle{}; 
             t->center = center;
