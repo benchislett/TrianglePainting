@@ -1,5 +1,6 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/array.h>
 
 #include <format>
 
@@ -24,6 +25,7 @@ void init_geometry(nb::module_& m)
             new (t) Triangle{}; 
             t->vertices = {a, b, c};
         })
+        .def_rw("vertices", &Triangle::vertices)
         .def("__getitem__", [](Triangle &t, int i) {
             return t[i];
         })

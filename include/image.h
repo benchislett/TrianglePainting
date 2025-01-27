@@ -117,6 +117,10 @@ struct Image : ImageView<PixelT> {
 
 private:
     void allocate() {
+        if (this->size() == 0) {
+            this->m_data = nullptr;
+            return;
+        }
         this->m_data = new PixelT[this->size()];
     }
 
