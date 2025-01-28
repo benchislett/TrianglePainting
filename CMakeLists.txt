@@ -58,6 +58,16 @@ if(USE_CUDA)
 endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+include(CheckIPOSupported)
+check_ipo_supported(RESULT supported OUTPUT error)
+
+if( supported )
+    message(STATUS "IPO / LTO enabled")
+    # set_property()
+    set_property(GLOBAL PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+else()
+    message(STATUS "IPO / LTO not supported: <${error}>")
+endif()
 
 add_library(${PROJECT_NAME} STATIC ${SOURCES} ${HEADERS})
 
