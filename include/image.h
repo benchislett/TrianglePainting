@@ -31,6 +31,12 @@ public:
     PixelT* data() { return m_data; }
     const PixelT* data() const { return m_data; }
 
+    PixelT* begin() { return m_data; }
+    const PixelT* begin() const { return m_data; }
+
+    PixelT* end() { return m_data + size(); }
+    const PixelT* end() const { return m_data + size(); }
+
     PixelT operator()(int x, int y) const {
         debug_check(x, y);
         return m_data[y * m_width + x];
