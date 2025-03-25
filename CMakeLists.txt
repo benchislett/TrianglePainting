@@ -5,6 +5,8 @@ project(PolyPaintLib LANGUAGES CXX)
 
 option(USE_CUDA "Use CUDA" ON)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
 if(APPLE)
   set(USE_CUDA OFF)
 endif()
@@ -57,7 +59,7 @@ if(USE_CUDA)
   list(APPEND HEADERS ${CUDA_HEADERS})
 endif()
 
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+# set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include(CheckIPOSupported)
 check_ipo_supported(RESULT supported OUTPUT error)
 
@@ -122,6 +124,8 @@ target_link_libraries(Test GTest::gtest_main ${PROJECT_NAME})
 include(GoogleTest)
 gtest_discover_tests(Test)
 
+find_package(Cairo REQUIRED)
+
 # set up experiments
 # create an executable for each .cpp source file in folder "experiments"
 file(GLOB_RECURSE EXPERIMENTS "experiments/*.cpp")
@@ -137,6 +141,9 @@ foreach(EXPERIMENT ${EXPERIMENTS})
   add_executable(${EXPERIMENT_NAME} ${EXPERIMENT} ${EXPERIMENT_HEADERS})
   target_link_libraries(${EXPERIMENT_NAME} ${PROJECT_NAME})
   target_include_directories(${EXPERIMENT_NAME} PUBLIC experiments)
+  target_link_libraries(${EXPERIMENT_NAME} ${Cairo_LIBRARIES})
+  target_include_directories(${EXPERIMENT_NAME} PUBLIC ${Cairo_INCLUDE_DIRS})
+  target_link_libraries(${EXPERIMENT_NAME} cairo)
 endforeach()
 
 # set up python bindings
