@@ -76,7 +76,7 @@ void benchmark_rasterization(
     // Pretty-print the output
     std::cout << std::setw(15) << "Iteration"
               << std::setw(15) << "Time (s)" << std::endl;
-              
+    
     // std::cout << std::string(30, '-') << std::endl;
     // for (size_t i = 0; i < output.times.size(); ++i) {
     //     std::cout << std::setw(15) << i + 1
@@ -97,6 +97,6 @@ void benchmark_rasterization(
 }
 
 void default_benchmark_main(std::shared_ptr<RasterImpl> raster_impl) {
-    Image<RGBA255> canvas(128, 128);
+    Image<RGBA255> canvas(500, 500);
     benchmark_rasterization(raster_impl, canvas, "output.png", 100000, 0);
 }

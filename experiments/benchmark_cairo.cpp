@@ -16,6 +16,7 @@ struct CairoRasterImpl : public RasterImpl {
         cr = cairo_create(surface);
         im = background;
         cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
+        cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
     }
 
     void render(SampleInput sample) override {
