@@ -97,6 +97,10 @@ void benchmark_rasterization(
 }
 
 void default_benchmark_main(std::shared_ptr<RasterImpl> raster_impl) {
-    Image<RGBA255> canvas(500, 500);
+    ImageView<RGBA255> canvas;
+    canvas.m_width = 128;
+    canvas.m_height = 128;
+    canvas.m_data = (RGBA255*) aligned_alloc(64, canvas.width() * canvas.height() * sizeof(RGBA255));
     benchmark_rasterization(raster_impl, canvas, "output.png", 100000, 0);
+    free(canvas.data());
 }
