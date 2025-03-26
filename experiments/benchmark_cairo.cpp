@@ -39,6 +39,11 @@ struct CairoRasterImpl : public RasterImpl {
         cairo_close_path(cr);
         cairo_fill(cr);
     }
+
+    void teardown() override {
+        cairo_destroy(cr);
+        cairo_surface_destroy(surface);
+    }
 };
 
 int main () {

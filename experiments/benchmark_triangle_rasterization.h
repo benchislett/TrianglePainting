@@ -15,6 +15,7 @@ struct SampleInput {
 struct RasterImpl {
     virtual void set_canvas(ImageView<RGBA255>) = 0;
     virtual void render(SampleInput) = 0;
+    virtual void teardown() {}
 };
 
 std::vector<SampleInput> generate_samples(int N, int seed = 0) {
@@ -94,6 +95,7 @@ void benchmark_rasterization(
     
     // Save the output to a file
     save_png_rgba(output_filename.c_str(), canvas);
+    raster_impl->teardown();
 }
 
 void default_benchmark_main(std::shared_ptr<RasterImpl> raster_impl) {
