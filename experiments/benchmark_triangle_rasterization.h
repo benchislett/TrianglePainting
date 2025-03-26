@@ -75,8 +75,8 @@ void benchmark_rasterization(
     // std::cout << "Iterations/s: " << N / true_duration.count() << std::endl;
 
     // Pretty-print the output
-    std::cout << std::setw(15) << "Iteration"
-              << std::setw(15) << "Time (s)" << std::endl;
+    std::cout << std::setw(16) << "Iteration"
+              << std::setw(16) << "Time (s)" << std::endl;
     
     // std::cout << std::string(30, '-') << std::endl;
     // for (size_t i = 0; i < output.times.size(); ++i) {
@@ -85,12 +85,12 @@ void benchmark_rasterization(
     //               << std::endl;
     // }
 
-    std::cout << std::string(30, '-') << std::endl;
-    std::cout << std::setw(15) << "Total Time"
-              << std::setw(15) << std::fixed << std::setprecision(6) << output.total_time
+    std::cout << std::string(31, '-') << std::endl;
+    std::cout << std::setw(16) << "Total Time"
+              << std::setw(16) << std::fixed << std::setprecision(6) << output.total_time
               << std::endl;
-    std::cout << std::setw(15) << "Iter/s"
-              << std::setw(15) << std::fixed << std::setprecision(6) << output.iterations_per_second
+    std::cout << std::setw(16) << "Iter/s"
+              << std::setw(16) << std::fixed << std::setprecision(6) << output.iterations_per_second
               << std::endl;
     
     // Save the output to a file
