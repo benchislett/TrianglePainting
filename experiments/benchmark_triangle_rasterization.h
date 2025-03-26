@@ -57,7 +57,6 @@ void benchmark_rasterization(
 
     BenchmarkOutput output;
     raster_impl->set_canvas(canvas);
-    // auto true_start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < N; i++) {
         clear_canvas(canvas);
         auto start = std::chrono::high_resolution_clock::now();
@@ -69,21 +68,9 @@ void benchmark_rasterization(
     output.total_time = std::accumulate(output.times.begin(), output.times.end(), 0.0);
     output.iterations_per_second = N / output.total_time;
 
-    // auto true_end = std::chrono::high_resolution_clock::now();
-    // std::chrono::duration<double> true_duration = true_end - true_start;
-    // std::cout << "Total time: " << true_duration.count() << "s" << std::endl;
-    // std::cout << "Iterations/s: " << N / true_duration.count() << std::endl;
-
     // Pretty-print the output
     std::cout << std::setw(16) << "Iteration"
               << std::setw(16) << "Time (s)" << std::endl;
-    
-    // std::cout << std::string(30, '-') << std::endl;
-    // for (size_t i = 0; i < output.times.size(); ++i) {
-    //     std::cout << std::setw(15) << i + 1
-    //               << std::setw(15) << std::fixed << std::setprecision(6) << output.times[i]
-    //               << std::endl;
-    // }
 
     std::cout << std::string(31, '-') << std::endl;
     std::cout << std::setw(16) << "Total Time"
