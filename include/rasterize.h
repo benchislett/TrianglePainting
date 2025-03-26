@@ -491,7 +491,8 @@ hline32rgba(int x0, int y0, int x1, int width, int height, Shader& shader) {
             x1 = width - 1;
         }
         if (x0 <= x1) {
-            while (x0 % 4 != 0 && x0 <= x1) {
+            int base_ptr_delta = (long int)(shader.background.data()) % 4;
+            while ((base_ptr_delta + x0) % 4 != 0 && x0 <= x1) {
                 shader.render_pixel(x0, y0);
                 x0++;
             }
