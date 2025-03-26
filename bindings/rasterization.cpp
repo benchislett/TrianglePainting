@@ -15,7 +15,8 @@ void init_rasterization(nb::module_& m)
     nb::enum_<RasterStrategy>(m, "RasterStrategy")
         .value("Bounded", RasterStrategy::Bounded)
         .value("Integer", RasterStrategy::Integer)
-        .value("ScanlinePolygon", RasterStrategy::ScanlinePolygon);
+        .value("ScanlinePolygon", RasterStrategy::ScanlinePolygon)
+        .value("TestNewPolygon", RasterStrategy::TestNewPolygon);
 
     nb::class_<RasterConfig>(m, "RasterConfig")
         .def(nb::init<RasterStrategy, int, int>())
