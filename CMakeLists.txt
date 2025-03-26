@@ -144,6 +144,7 @@ foreach(EXPERIMENT ${EXPERIMENTS})
   target_link_libraries(${EXPERIMENT_NAME} ${Cairo_LIBRARIES})
   target_include_directories(${EXPERIMENT_NAME} PUBLIC ${Cairo_INCLUDE_DIRS})
   target_link_libraries(${EXPERIMENT_NAME} cairo)
+  target_compile_options(${EXPERIMENT_NAME} PRIVATE -msse4.2 -mavx2) # Enable SSE4.2 and AVX2
 endforeach()
 
 # set up python bindings

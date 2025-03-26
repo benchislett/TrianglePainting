@@ -33,7 +33,13 @@ struct PolypaintRasterImpl : public RasterImpl {
 };
 
 int main () {
-    auto impl = std::make_shared<PolypaintRasterImpl<RasterStrategy::Integer>>();
-    default_benchmark_main(impl);
+    auto impl1 = std::make_shared<PolypaintRasterImpl<RasterStrategy::Bounded>>();
+    auto impl2 = std::make_shared<PolypaintRasterImpl<RasterStrategy::Integer>>();
+    auto impl3 = std::make_shared<PolypaintRasterImpl<RasterStrategy::ScanlinePolygon>>();
+    auto impl4 = std::make_shared<PolypaintRasterImpl<RasterStrategy::TestNewPolygon>>();
+    default_benchmark_main(impl1);
+    default_benchmark_main(impl2);
+    default_benchmark_main(impl3);
+    default_benchmark_main(impl4);
     return 0;
 }
