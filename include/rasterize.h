@@ -5,6 +5,7 @@
 
 #include "utils.h"
 
+#include <iostream>
 #include <memory>
 #include <cstring>
 #include <string>
@@ -909,7 +910,7 @@ void rasterize_triangle_binned(const Triangle& tri, int width, int height, Compo
         tri[2].x * width, tri[2].y * height
     };
 
-    // Construct vec2s for use with edge functions.
+    // Construct vec2's for use with the edge functions.
     vec2 v0(pts[0], pts[1]);
     vec2 v1(pts[2], pts[3]);
     vec2 v2(pts[4], pts[5]);
@@ -931,9 +932,20 @@ void rasterize_triangle_binned(const Triangle& tri, int width, int height, Compo
     ymin = clampi(ymin, 0, height - 1);
     ymax = clampi(ymax + 1, 0, height - 1);
 
-    int tile_size = 4;
-    
-    xmin = xmin - (xmin % tile_size);
+    constexpr int tile_size = 4;
+
+    xmin = xmin - (xmin % 4);
+
+    unsigned char* framebuffer = (unsigned char*) shader.background.data();
+
+    float filledbitsfloat;
+	{
+		unsigned int ii = 0xffffffff;
+		memcpy(&filledbitsfloat, &ii, sizeof(float));
+	}
+	float whitecolorfloat = filledbitsfloat;
+
+    __m128 zero = _mm_setzero_ps();
 
     // Loop over tiles in the bounding box.
     for (int y_tile_start = ymin; y_tile_start < ymax; y_tile_start += tile_size) {
@@ -944,61 +956,88 @@ void rasterize_triangle_binned(const Triangle& tri, int width, int height, Compo
             float x1 = float(x_tile_start + tile_size);
             float y1 = float(y_tile_start + tile_size);
 
-            // For the tile, compute the edge function values for all four corners.
-            // Corners: top-left (x0,y0), top-right (x1,y0), bottom-right (x1,y1), bottom-left (x0,y1).
-            float e0_tl = edgeFunction(v0, v1, vec2(x0, y0));
-            float e0_tr = edgeFunction(v0, v1, vec2(x1, y0));
-            float e0_br = edgeFunction(v0, v1, vec2(x1, y1));
-            float e0_bl = edgeFunction(v0, v1, vec2(x0, y1));
-            float min_e0 = std::min({ e0_tl, e0_tr, e0_br, e0_bl });
-            float max_e0 = std::max({ e0_tl, e0_tr, e0_br, e0_bl });
+            // Pack the 4 corner coordinates into SSE registers.
+            // Order: top-left, top-right, bottom-right, bottom-left.
+            __m128 cx = _mm_setr_ps(x0, x1, x1, x0);
+            __m128 cy = _mm_setr_ps(y0, y0, y1, y1);
 
-            float e1_tl = edgeFunction(v1, v2, vec2(x0, y0));
-            float e1_tr = edgeFunction(v1, v2, vec2(x1, y0));
-            float e1_br = edgeFunction(v1, v2, vec2(x1, y1));
-            float e1_bl = edgeFunction(v1, v2, vec2(x0, y1));
-            float min_e1 = std::min({ e1_tl, e1_tr, e1_br, e1_bl });
-            float max_e1 = std::max({ e1_tl, e1_tr, e1_br, e1_bl });
+            // --- Edge 0: from v0 to v1 ---
+            __m128 edge0_vals = edgeFunctionSSE(v0, v1, cx, cy);
+            // Compute horizontal minimum using one movehl and one shuffle.
+            __m128 t0 = _mm_min_ps(edge0_vals, _mm_movehl_ps(edge0_vals, edge0_vals));
+            __m128 t0_shuf = _mm_shuffle_ps(t0, t0, _MM_SHUFFLE(0,0,0,1));
+            float min_e0 = _mm_cvtss_f32(_mm_min_ss(t0, t0_shuf));
+            // And horizontal maximum.
+            __m128 t0_max = _mm_max_ps(edge0_vals, _mm_movehl_ps(edge0_vals, edge0_vals));
+            __m128 t0_max_shuf = _mm_shuffle_ps(t0_max, t0_max, _MM_SHUFFLE(0,0,0,1));
+            float max_e0 = _mm_cvtss_f32(_mm_max_ss(t0_max, t0_max_shuf));
 
-            float e2_tl = edgeFunction(v2, v0, vec2(x0, y0));
-            float e2_tr = edgeFunction(v2, v0, vec2(x1, y0));
-            float e2_br = edgeFunction(v2, v0, vec2(x1, y1));
-            float e2_bl = edgeFunction(v2, v0, vec2(x0, y1));
-            float min_e2 = std::min({ e2_tl, e2_tr, e2_br, e2_bl });
-            float max_e2 = std::max({ e2_tl, e2_tr, e2_br, e2_bl });
+            // --- Edge 1: from v1 to v2 ---
+            __m128 edge1_vals = edgeFunctionSSE(v1, v2, cx, cy);
+            __m128 t1 = _mm_min_ps(edge1_vals, _mm_movehl_ps(edge1_vals, edge1_vals));
+            __m128 t1_shuf = _mm_shuffle_ps(t1, t1, _MM_SHUFFLE(0,0,0,1));
+            float min_e1 = _mm_cvtss_f32(_mm_min_ss(t1, t1_shuf));
+            __m128 t1_max = _mm_max_ps(edge1_vals, _mm_movehl_ps(edge1_vals, edge1_vals));
+            __m128 t1_max_shuf = _mm_shuffle_ps(t1_max, t1_max, _MM_SHUFFLE(0,0,0,1));
+            float max_e1 = _mm_cvtss_f32(_mm_max_ss(t1_max, t1_max_shuf));
 
+            // --- Edge 2: from v2 to v0 ---
+            __m128 edge2_vals = edgeFunctionSSE(v2, v0, cx, cy);
+            __m128 t2 = _mm_min_ps(edge2_vals, _mm_movehl_ps(edge2_vals, edge2_vals));
+            __m128 t2_shuf = _mm_shuffle_ps(t2, t2, _MM_SHUFFLE(0,0,0,1));
+            float min_e2 = _mm_cvtss_f32(_mm_min_ss(t2, t2_shuf));
+            __m128 t2_max = _mm_max_ps(edge2_vals, _mm_movehl_ps(edge2_vals, edge2_vals));
+            __m128 t2_max_shuf = _mm_shuffle_ps(t2_max, t2_max, _MM_SHUFFLE(0,0,0,1));
+            float max_e2 = _mm_cvtss_f32(_mm_max_ss(t2_max, t2_max_shuf));
+
+            // Conservative tile classification:
             // If any edge's maximum value is below 0, the tile is completely outside.
             if (max_e0 < 0 || max_e1 < 0 || max_e2 < 0) {
                 continue;
             }
-
-            // If all edges have minimum values >= 0, the tile is completely inside.
+            // If all edges have a minimum value >= 0, the tile is completely inside.
             bool tileFullyInside = (min_e0 >= 0 && min_e1 >= 0 && min_e2 >= 0);
 
             if (tileFullyInside) {
                 // Fast fill: shade every pixel in the tile.
                 for (int y_idx = 0; y_idx < tile_size; y_idx++) {
-                    for (int x_idx = 0; x_idx < tile_size; x_idx++) {
-                        int x = x_tile_start + x_idx;
-                        int y = y_tile_start + y_idx;
-                        shader.render_pixel(x, y);
+                    for (int x_idx = 0; x_idx < tile_size; x_idx += 4) {
+                        unsigned char* ptr = (unsigned char*)(framebuffer + 4 * ((y_tile_start + y_idx) * width + x_tile_start + x_idx));
+
+                        __m128i newBufferVal = alphaBlendSSE(ptr, shader.colour.r, shader.colour.g, shader.colour.b, shader.colour.a);
+                        _mm_store_si128((__m128i*)ptr, newBufferVal);	
                     }
                 }
             } else {
                 // Partially covered tile: test each pixel individually.
                 for (int y_idx = 0; y_idx < tile_size; y_idx++) {
-                    for (int x_idx = 0; x_idx < tile_size; x_idx++) {
-                        int x = x_tile_start + x_idx;
-                        int y = y_tile_start + y_idx;
-                        // Evaluate at the pixel center.
-                        float u = x + 0.5f;
-                        float v = y + 0.5f;
-                        float e0 = edgeFunction(v0, v1, vec2(u, v));
-                        float e1 = edgeFunction(v1, v2, vec2(u, v));
-                        float e2 = edgeFunction(v2, v0, vec2(u, v));
-                        if (e0 >= 0 && e1 >= 0 && e2 >= 0) {
-                            shader.render_pixel(x, y);
-                        }
+                    float v = (y_tile_start + y_idx + 0.5f);
+                    __m128 py = _mm_set1_ps(v);
+                    for (int x_idx = 0; x_idx < tile_size; x_idx += 4) {
+                        unsigned char* ptr = (unsigned char*)(framebuffer + 4 * ((y_tile_start + y_idx) * width + x_tile_start + x_idx));
+                        float u = x_tile_start + x_idx + 0.5f;
+                        __m128 px = _mm_set_ps(u + 3.0f, u + 2.0f, u + 1.0f, u + 0.0f);
+                        // px = _mm_mul_ps(px, _mm_set1_ps(1.0f / width));
+
+                        __m128 w0 = edgeFunctionSSE(v1, v2, px, py);
+                        __m128 w1 = edgeFunctionSSE(v2, v0, px, py);
+                        __m128 w2 = edgeFunctionSSE(v0, v1, px, py);
+
+                        // the default bitflag, results in all the four pixels being overwritten.
+                        __m128 writeFlag = _mm_set_ps1(filledbitsfloat);
+
+                        // the results of the edge tests are used to modify our bitflag.
+                        writeFlag = _mm_and_ps(writeFlag, _mm_cmpge_ps(w0, zero));
+                        writeFlag = _mm_and_ps(writeFlag, _mm_cmpge_ps(w1, zero));
+                        writeFlag = _mm_and_ps(writeFlag, _mm_cmpge_ps(w2, zero));
+
+                        __m128i origBufferVal = _mm_load_si128((__m128i*)ptr);
+                        __m128i newBufferVal = alphaBlendSSE(ptr, shader.colour.r, shader.colour.g, shader.colour.b, shader.colour.a);
+                        _mm_store_si128((__m128i*)ptr,
+                            _mm_or_si128(
+                                _mm_and_si128(_mm_castps_si128(writeFlag), newBufferVal),
+                                _mm_andnot_si128(_mm_castps_si128(writeFlag), origBufferVal)
+                            ));	
                     }
                 }
             }
