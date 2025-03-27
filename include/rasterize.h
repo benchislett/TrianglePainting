@@ -902,20 +902,29 @@ int ImagingDrawPolygon(int count, int *xy, int width, int height, Shader& shader
 }
 
 void rasterize_triangle_binned(const Triangle& tri, int width, int height, CompositOverShader& shader) {
+    // Convert triangle vertices to screen space coordinates.
     float pts[6] = {
         tri[0].x * width, tri[0].y * height,
         tri[1].x * width, tri[1].y * height,
         tri[2].x * width, tri[2].y * height
     };
+
+    // Construct vec2s for use with edge functions.
+    vec2 v0(pts[0], pts[1]);
+    vec2 v1(pts[2], pts[3]);
+    vec2 v2(pts[4], pts[5]);
+
+    // Compute bounding box using integer approximations.
     int pts_int[6] = {
         int(pts[0]), int(pts[1]),
         int(pts[2]), int(pts[3]),
         int(pts[4]), int(pts[5])
     };
-    int xmin = std::min({pts_int[0], pts_int[2], pts_int[4]});
-    int xmax = std::max({pts_int[0], pts_int[2], pts_int[4]});
-    int ymin = std::min({pts_int[1], pts_int[3], pts_int[5]});
-    int ymax = std::max({pts_int[1], pts_int[3], pts_int[5]});
+
+    int xmin = std::min({ pts_int[0], pts_int[2], pts_int[4] });
+    int xmax = std::max({ pts_int[0], pts_int[2], pts_int[4] });
+    int ymin = std::min({ pts_int[1], pts_int[3], pts_int[5] });
+    int ymax = std::max({ pts_int[1], pts_int[3], pts_int[5] });
 
     xmin = clampi(xmin, 0, width - 1);
     xmax = clampi(xmax + 1, 0, width - 1);
@@ -923,56 +932,51 @@ void rasterize_triangle_binned(const Triangle& tri, int width, int height, Compo
     ymax = clampi(ymax + 1, 0, height - 1);
 
     int tile_size = 4;
+    
+    xmin = xmin - (xmin % tile_size);
 
+    // Loop over tiles in the bounding box.
     for (int y_tile_start = ymin; y_tile_start < ymax; y_tile_start += tile_size) {
         for (int x_tile_start = xmin; x_tile_start < xmax; x_tile_start += tile_size) {
-            // test four corners
-            int hits = 0;
+            // Compute tile corner coordinates (in screen space).
+            float x0 = float(x_tile_start);
+            float y0 = float(y_tile_start);
+            float x1 = float(x_tile_start + tile_size);
+            float y1 = float(y_tile_start + tile_size);
 
-            float u,v;
-            int x = x_tile_start;
-            int y = y_tile_start;
-            u = x / (float)width;
-            v = y / (float)height;
-            if (tri.is_inside(Point{u, v})) {
-                hits++;
+            // For the tile, compute the edge function values for all four corners.
+            // Corners: top-left (x0,y0), top-right (x1,y0), bottom-right (x1,y1), bottom-left (x0,y1).
+            float e0_tl = edgeFunction(v0, v1, vec2(x0, y0));
+            float e0_tr = edgeFunction(v0, v1, vec2(x1, y0));
+            float e0_br = edgeFunction(v0, v1, vec2(x1, y1));
+            float e0_bl = edgeFunction(v0, v1, vec2(x0, y1));
+            float min_e0 = std::min({ e0_tl, e0_tr, e0_br, e0_bl });
+            float max_e0 = std::max({ e0_tl, e0_tr, e0_br, e0_bl });
+
+            float e1_tl = edgeFunction(v1, v2, vec2(x0, y0));
+            float e1_tr = edgeFunction(v1, v2, vec2(x1, y0));
+            float e1_br = edgeFunction(v1, v2, vec2(x1, y1));
+            float e1_bl = edgeFunction(v1, v2, vec2(x0, y1));
+            float min_e1 = std::min({ e1_tl, e1_tr, e1_br, e1_bl });
+            float max_e1 = std::max({ e1_tl, e1_tr, e1_br, e1_bl });
+
+            float e2_tl = edgeFunction(v2, v0, vec2(x0, y0));
+            float e2_tr = edgeFunction(v2, v0, vec2(x1, y0));
+            float e2_br = edgeFunction(v2, v0, vec2(x1, y1));
+            float e2_bl = edgeFunction(v2, v0, vec2(x0, y1));
+            float min_e2 = std::min({ e2_tl, e2_tr, e2_br, e2_bl });
+            float max_e2 = std::max({ e2_tl, e2_tr, e2_br, e2_bl });
+
+            // If any edge's maximum value is below 0, the tile is completely outside.
+            if (max_e0 < 0 || max_e1 < 0 || max_e2 < 0) {
+                continue;
             }
 
-            x += tile_size;
-            u = x / (float)width;
-            if (tri.is_inside(Point{u, v})) {
-                hits++;
-            }
+            // If all edges have minimum values >= 0, the tile is completely inside.
+            bool tileFullyInside = (min_e0 >= 0 && min_e1 >= 0 && min_e2 >= 0);
 
-            y += tile_size;
-            v = y / (float)height;
-            if (tri.is_inside(Point{u, v})) {
-                hits++;
-            }
-
-            x -= tile_size;
-            u = x / (float)width;
-            if (tri.is_inside(Point{u, v})) {
-                hits++;
-            }
-
-            if (hits == 0) {
-                // check for a vertex inside this tile
-                for (int i = 0; i < 3; i++) {
-                    if (pts_int[2 * i + 0] >= x_tile_start && pts_int[2 * i + 0] <= x_tile_start + tile_size &&
-                        pts_int[2 * i + 1] >= y_tile_start && pts_int[2 * i + 1] <= y_tile_start + tile_size) {
-                        hits = 1;
-                        break;
-                    }
-                }
-                // no vertices inside this tile, skip
-                if (hits == 0) {
-                    continue;
-                }
-            } 
-            
-            if (hits == 4) {
-                // shade all pixels inside the tile
+            if (tileFullyInside) {
+                // Fast fill: shade every pixel in the tile.
                 for (int y_idx = 0; y_idx < tile_size; y_idx++) {
                     for (int x_idx = 0; x_idx < tile_size; x_idx++) {
                         int x = x_tile_start + x_idx;
@@ -981,14 +985,18 @@ void rasterize_triangle_binned(const Triangle& tri, int width, int height, Compo
                     }
                 }
             } else {
-                // shade pixels one by one
+                // Partially covered tile: test each pixel individually.
                 for (int y_idx = 0; y_idx < tile_size; y_idx++) {
                     for (int x_idx = 0; x_idx < tile_size; x_idx++) {
                         int x = x_tile_start + x_idx;
                         int y = y_tile_start + y_idx;
-                        float u = (x + 0.5f) / (float)width;
-                        float v = (y + 0.5f) / (float)height;
-                        if (tri.is_inside(Point{u, v})) {
+                        // Evaluate at the pixel center.
+                        float u = x + 0.5f;
+                        float v = y + 0.5f;
+                        float e0 = edgeFunction(v0, v1, vec2(u, v));
+                        float e1 = edgeFunction(v1, v2, vec2(u, v));
+                        float e2 = edgeFunction(v2, v0, vec2(u, v));
+                        if (e0 >= 0 && e1 >= 0 && e2 >= 0) {
                             shader.render_pixel(x, y);
                         }
                     }
