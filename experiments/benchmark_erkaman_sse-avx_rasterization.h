@@ -1,13 +1,18 @@
-#include <stdio.h>
-#include <math.h>
-#include <string.h>
-#include <float.h>
+#pragma once
+
+#include <cstdio>
+#include <cmath>
+#include <cstring>
+#include <cfloat>
 #include <iostream>
 #include <cassert>
 
 // get SSE and AVX
 #include <immintrin.h>
 #include <xmmintrin.h>
+
+#include "rasterize.h"
+#include "utils.h"
 
 struct vec2 {
 public:
@@ -24,38 +29,6 @@ unsigned int rounddownAligned(unsigned int i, unsigned int align) {
 
 unsigned int roundupAligned(unsigned int i, unsigned int align) {
 	return (unsigned int)ceil((float)i / (float)align) * align;
-}
-
-int clampi(int i, int min, int max) {
-	if (i < min) {
-		return min;
-	}
-	else if (i > max) {
-		return max;
-	}
-	else {
-		return i;
-	}
-}
-
-float clamp(float f, float min, float max) {
-	if (f < min) {
-		return min;
-	}
-	else if (f > max) {
-		return max;
-	}
-	else {
-		return f;
-	}
-}
-
-float min(float x, float y) {
-	return x < y ? x : y;
-}
-
-float max(float x, float y) {
-	return x > y ? x : y;
 }
 
 __m128 edgeFunctionSSE(const vec2 &a, const vec2 &b, __m128 cx, __m128 cy)
@@ -82,132 +55,132 @@ void alphaBlendInPlace(unsigned char* buf, unsigned char r, unsigned char g, uns
 	assert(buf[3] == 255);
 }
 
-__m128i alphaBlendSSE(unsigned char* buf, unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
-	const int invA = 255 - a;
-	const int F_r = r * invA;
-	const int F_g = g * invA;
-	const int F_b = b * invA;
+// __m128i alphaBlendSSE(unsigned char* buf, unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
+// 	const int invA = 255 - a;
+// 	const int F_r = r * invA;
+// 	const int F_g = g * invA;
+// 	const int F_b = b * invA;
 
-	const __m128i fg_const = _mm_setr_epi16(
-		(short)F_r, (short)F_g, (short)F_b, 0,
-		(short)F_r, (short)F_g, (short)F_b, 0);
+// 	const __m128i fg_const = _mm_setr_epi16(
+// 		(short)F_r, (short)F_g, (short)F_b, 0,
+// 		(short)F_r, (short)F_g, (short)F_b, 0);
 	
-	const __m128i alpha_vec = _mm_set1_epi16((short)a);
+// 	const __m128i alpha_vec = _mm_set1_epi16((short)a);
 
-	const __m128i add128 = _mm_set1_epi16(128);
+// 	const __m128i add128 = _mm_set1_epi16(128);
 
-	const __m128i alpha_mask = _mm_set1_epi32(0xff000000);
-	const __m128i color_mask = _mm_set1_epi32(0x00ffffff);
+// 	const __m128i alpha_mask = _mm_set1_epi32(0xff000000);
+// 	const __m128i color_mask = _mm_set1_epi32(0x00ffffff);
 
-	__m128i bg = _mm_load_si128((__m128i*)(buf));
+// 	__m128i bg = _mm_load_si128((__m128i*)(buf));
 
-    __m128i bg_lo = _mm_unpacklo_epi8(bg, _mm_setzero_si128());
-    __m128i bg_hi = _mm_unpackhi_epi8(bg, _mm_setzero_si128());
+//     __m128i bg_lo = _mm_unpacklo_epi8(bg, _mm_setzero_si128());
+//     __m128i bg_hi = _mm_unpackhi_epi8(bg, _mm_setzero_si128());
 
-    __m128i mult_lo = _mm_mullo_epi16(bg_lo, alpha_vec);
-    __m128i sum_lo = _mm_add_epi16(mult_lo, fg_const);
-    __m128i tmp_lo = _mm_add_epi16(sum_lo, add128);
-    __m128i tmp2_lo = _mm_srli_epi16(tmp_lo, 8);
-    __m128i blended_lo = _mm_srli_epi16(_mm_add_epi16(tmp_lo, tmp2_lo), 8);
+//     __m128i mult_lo = _mm_mullo_epi16(bg_lo, alpha_vec);
+//     __m128i sum_lo = _mm_add_epi16(mult_lo, fg_const);
+//     __m128i tmp_lo = _mm_add_epi16(sum_lo, add128);
+//     __m128i tmp2_lo = _mm_srli_epi16(tmp_lo, 8);
+//     __m128i blended_lo = _mm_srli_epi16(_mm_add_epi16(tmp_lo, tmp2_lo), 8);
 
-    __m128i mult_hi = _mm_mullo_epi16(bg_hi, alpha_vec);
-    __m128i sum_hi = _mm_add_epi16(mult_hi, fg_const);
-    __m128i tmp_hi = _mm_add_epi16(sum_hi, add128);
-    __m128i tmp2_hi = _mm_srli_epi16(tmp_hi, 8);
-    __m128i blended_hi = _mm_srli_epi16(_mm_add_epi16(tmp_hi, tmp2_hi), 8);
+//     __m128i mult_hi = _mm_mullo_epi16(bg_hi, alpha_vec);
+//     __m128i sum_hi = _mm_add_epi16(mult_hi, fg_const);
+//     __m128i tmp_hi = _mm_add_epi16(sum_hi, add128);
+//     __m128i tmp2_hi = _mm_srli_epi16(tmp_hi, 8);
+//     __m128i blended_hi = _mm_srli_epi16(_mm_add_epi16(tmp_hi, tmp2_hi), 8);
 
-    __m128i blended_pixels = _mm_packus_epi16(blended_lo, blended_hi);
+//     __m128i blended_pixels = _mm_packus_epi16(blended_lo, blended_hi);
 
-    blended_pixels = _mm_and_si128(blended_pixels, color_mask);
-    blended_pixels = _mm_or_si128(blended_pixels, alpha_mask);
+//     blended_pixels = _mm_and_si128(blended_pixels, color_mask);
+//     blended_pixels = _mm_or_si128(blended_pixels, alpha_mask);
 
-    return blended_pixels;
-}
+//     return blended_pixels;
+// }
 
-__m256i alphaBlendAVX(unsigned char* buf, unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
-    // Precompute the inverse alpha and the constant terms for each channel:
-    // For each channel, we want: result = DIV255( bg_channel * a + fg_channel * (255 - a) )
-    const int invA = 255 - a;
-    const int F_r = r * invA;
-    const int F_g = g * invA;
-    const int F_b = b * invA;
+// __m256i alphaBlendAVX(unsigned char* buf, unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
+//     // Precompute the inverse alpha and the constant terms for each channel:
+//     // For each channel, we want: result = DIV255( bg_channel * a + fg_channel * (255 - a) )
+//     const int invA = 255 - a;
+//     const int F_r = r * invA;
+//     const int F_g = g * invA;
+//     const int F_b = b * invA;
     
-    // For processing 4 pixels at a time (each pixel: R, G, B, 0) pattern,
-    // we create a 128-bit constant that will be reused for both halves.
-    __m128i fg_const_sse = _mm_setr_epi16(
-        (short)F_r, (short)F_g, (short)F_b, 0,
-        (short)F_r, (short)F_g, (short)F_b, 0);
+//     // For processing 4 pixels at a time (each pixel: R, G, B, 0) pattern,
+//     // we create a 128-bit constant that will be reused for both halves.
+//     __m128i fg_const_sse = _mm_setr_epi16(
+//         (short)F_r, (short)F_g, (short)F_b, 0,
+//         (short)F_r, (short)F_g, (short)F_b, 0);
     
-    // Broadcast the foreground alpha (a) into all 16-bit lanes for the 4 pixels.
-    __m128i alpha_vec_sse = _mm_set1_epi16((short)a);
-    // Constant for our DIV255 approximation.
-    __m128i add128_sse = _mm_set1_epi16(128);
+//     // Broadcast the foreground alpha (a) into all 16-bit lanes for the 4 pixels.
+//     __m128i alpha_vec_sse = _mm_set1_epi16((short)a);
+//     // Constant for our DIV255 approximation.
+//     __m128i add128_sse = _mm_set1_epi16(128);
     
-    // Create 256-bit masks for forcing the output alpha to 255.
-    // Each pixel is 32-bit: we want to zero out the alpha and then OR in 0xff.
-    __m256i color_mask256 = _mm256_set1_epi32(0x00ffffff);
-    __m256i alpha_mask256 = _mm256_set1_epi32(0xff000000);
+//     // Create 256-bit masks for forcing the output alpha to 255.
+//     // Each pixel is 32-bit: we want to zero out the alpha and then OR in 0xff.
+//     __m256i color_mask256 = _mm256_set1_epi32(0x00ffffff);
+//     __m256i alpha_mask256 = _mm256_set1_epi32(0xff000000);
     
-    // Load 8 pixels (8 x 4 bytes = 32 bytes) from the buffer.
-    __m256i bg = _mm256_load_si256((__m256i*)buf);
+//     // Load 8 pixels (8 x 4 bytes = 32 bytes) from the buffer.
+//     __m256i bg = _mm256_load_si256((__m256i*)buf);
     
-    // Split the 256-bit register into its lower and upper 128-bit halves (each holds 4 pixels).
-    __m128i bg_lo = _mm256_castsi256_si128(bg);
-    __m128i bg_hi = _mm256_extracti128_si256(bg, 1);
+//     // Split the 256-bit register into its lower and upper 128-bit halves (each holds 4 pixels).
+//     __m128i bg_lo = _mm256_castsi256_si128(bg);
+//     __m128i bg_hi = _mm256_extracti128_si256(bg, 1);
     
-    // Process the lower 128-bit half.
-    __m128i zero128 = _mm_setzero_si128();
-    // Unpack the lower 4 pixels from 8-bit to 16-bit (two groups: low and high parts).
-    __m128i bg_lo_lo = _mm_unpacklo_epi8(bg_lo, zero128);
-    __m128i bg_lo_hi = _mm_unpackhi_epi8(bg_lo, zero128);
+//     // Process the lower 128-bit half.
+//     __m128i zero128 = _mm_setzero_si128();
+//     // Unpack the lower 4 pixels from 8-bit to 16-bit (two groups: low and high parts).
+//     __m128i bg_lo_lo = _mm_unpacklo_epi8(bg_lo, zero128);
+//     __m128i bg_lo_hi = _mm_unpackhi_epi8(bg_lo, zero128);
     
-    // For the lower group: multiply background channels by 'a' and add the constant.
-    __m128i mult_lo_lo = _mm_mullo_epi16(bg_lo_lo, alpha_vec_sse);
-    __m128i sum_lo_lo = _mm_add_epi16(mult_lo_lo, fg_const_sse);
-    // Approximate division by 255: add 128, then add shifted result, then shift by 8.
-    __m128i tmp_lo_lo = _mm_add_epi16(sum_lo_lo, add128_sse);
-    __m128i tmp2_lo_lo = _mm_srli_epi16(tmp_lo_lo, 8);
-    __m128i blended_lo_lo = _mm_srli_epi16(_mm_add_epi16(tmp_lo_lo, tmp2_lo_lo), 8);
+//     // For the lower group: multiply background channels by 'a' and add the constant.
+//     __m128i mult_lo_lo = _mm_mullo_epi16(bg_lo_lo, alpha_vec_sse);
+//     __m128i sum_lo_lo = _mm_add_epi16(mult_lo_lo, fg_const_sse);
+//     // Approximate division by 255: add 128, then add shifted result, then shift by 8.
+//     __m128i tmp_lo_lo = _mm_add_epi16(sum_lo_lo, add128_sse);
+//     __m128i tmp2_lo_lo = _mm_srli_epi16(tmp_lo_lo, 8);
+//     __m128i blended_lo_lo = _mm_srli_epi16(_mm_add_epi16(tmp_lo_lo, tmp2_lo_lo), 8);
     
-    // Process the higher group within the lower half.
-    __m128i mult_lo_hi = _mm_mullo_epi16(bg_lo_hi, alpha_vec_sse);
-    __m128i sum_lo_hi = _mm_add_epi16(mult_lo_hi, fg_const_sse);
-    __m128i tmp_lo_hi = _mm_add_epi16(sum_lo_hi, add128_sse);
-    __m128i tmp2_lo_hi = _mm_srli_epi16(tmp_lo_hi, 8);
-    __m128i blended_lo_hi = _mm_srli_epi16(_mm_add_epi16(tmp_lo_hi, tmp2_lo_hi), 8);
+//     // Process the higher group within the lower half.
+//     __m128i mult_lo_hi = _mm_mullo_epi16(bg_lo_hi, alpha_vec_sse);
+//     __m128i sum_lo_hi = _mm_add_epi16(mult_lo_hi, fg_const_sse);
+//     __m128i tmp_lo_hi = _mm_add_epi16(sum_lo_hi, add128_sse);
+//     __m128i tmp2_lo_hi = _mm_srli_epi16(tmp_lo_hi, 8);
+//     __m128i blended_lo_hi = _mm_srli_epi16(_mm_add_epi16(tmp_lo_hi, tmp2_lo_hi), 8);
     
-    // Pack the two groups (each 8 x 16-bit) back into 8-bit values: now we have 4 blended pixels.
-    __m128i blended_lo_128 = _mm_packus_epi16(blended_lo_lo, blended_lo_hi);
+//     // Pack the two groups (each 8 x 16-bit) back into 8-bit values: now we have 4 blended pixels.
+//     __m128i blended_lo_128 = _mm_packus_epi16(blended_lo_lo, blended_lo_hi);
     
-    // Process the upper 128-bit half (the other 4 pixels) similarly.
-    __m128i bg_hi_lo = _mm_unpacklo_epi8(bg_hi, zero128);
-    __m128i bg_hi_hi = _mm_unpackhi_epi8(bg_hi, zero128);
+//     // Process the upper 128-bit half (the other 4 pixels) similarly.
+//     __m128i bg_hi_lo = _mm_unpacklo_epi8(bg_hi, zero128);
+//     __m128i bg_hi_hi = _mm_unpackhi_epi8(bg_hi, zero128);
     
-    __m128i mult_hi_lo = _mm_mullo_epi16(bg_hi_lo, alpha_vec_sse);
-    __m128i sum_hi_lo = _mm_add_epi16(mult_hi_lo, fg_const_sse);
-    __m128i tmp_hi_lo = _mm_add_epi16(sum_hi_lo, add128_sse);
-    __m128i tmp2_hi_lo = _mm_srli_epi16(tmp_hi_lo, 8);
-    __m128i blended_hi_lo = _mm_srli_epi16(_mm_add_epi16(tmp_hi_lo, tmp2_hi_lo), 8);
+//     __m128i mult_hi_lo = _mm_mullo_epi16(bg_hi_lo, alpha_vec_sse);
+//     __m128i sum_hi_lo = _mm_add_epi16(mult_hi_lo, fg_const_sse);
+//     __m128i tmp_hi_lo = _mm_add_epi16(sum_hi_lo, add128_sse);
+//     __m128i tmp2_hi_lo = _mm_srli_epi16(tmp_hi_lo, 8);
+//     __m128i blended_hi_lo = _mm_srli_epi16(_mm_add_epi16(tmp_hi_lo, tmp2_hi_lo), 8);
     
-    __m128i mult_hi_hi = _mm_mullo_epi16(bg_hi_hi, alpha_vec_sse);
-    __m128i sum_hi_hi = _mm_add_epi16(mult_hi_hi, fg_const_sse);
-    __m128i tmp_hi_hi = _mm_add_epi16(sum_hi_hi, add128_sse);
-    __m128i tmp2_hi_hi = _mm_srli_epi16(tmp_hi_hi, 8);
-    __m128i blended_hi_hi = _mm_srli_epi16(_mm_add_epi16(tmp_hi_hi, tmp2_hi_hi), 8);
+//     __m128i mult_hi_hi = _mm_mullo_epi16(bg_hi_hi, alpha_vec_sse);
+//     __m128i sum_hi_hi = _mm_add_epi16(mult_hi_hi, fg_const_sse);
+//     __m128i tmp_hi_hi = _mm_add_epi16(sum_hi_hi, add128_sse);
+//     __m128i tmp2_hi_hi = _mm_srli_epi16(tmp_hi_hi, 8);
+//     __m128i blended_hi_hi = _mm_srli_epi16(_mm_add_epi16(tmp_hi_hi, tmp2_hi_hi), 8);
     
-    __m128i blended_hi_128 = _mm_packus_epi16(blended_hi_lo, blended_hi_hi);
+//     __m128i blended_hi_128 = _mm_packus_epi16(blended_hi_lo, blended_hi_hi);
     
-    // Recombine the two 128-bit halves into one 256-bit register.
-    __m256i blended_pixels = _mm256_castsi128_si256(blended_lo_128);
-    blended_pixels = _mm256_inserti128_si256(blended_pixels, blended_hi_128, 1);
+//     // Recombine the two 128-bit halves into one 256-bit register.
+//     __m256i blended_pixels = _mm256_castsi128_si256(blended_lo_128);
+//     blended_pixels = _mm256_inserti128_si256(blended_pixels, blended_hi_128, 1);
     
-    // Force the alpha channel to 255 for every pixel:
-    blended_pixels = _mm256_or_si256(
-        _mm256_and_si256(blended_pixels, color_mask256),
-        alpha_mask256);
+//     // Force the alpha channel to 255 for every pixel:
+//     blended_pixels = _mm256_or_si256(
+//         _mm256_and_si256(blended_pixels, color_mask256),
+//         alpha_mask256);
         
-    return blended_pixels;
-}
+//     return blended_pixels;
+// }
 
 void rasterizeTriangle(
 	const float x0, const float y0,
@@ -501,6 +474,10 @@ struct RasterImplPlain : public RasterImpl {
 			sample.colour_rgba[0], sample.colour_rgba[1],
 			sample.colour_rgba[2], sample.colour_rgba[3]);
 	}
+
+	std::string name() const override {
+        return "Erkaman Reference";
+    }
 };
 
 struct RasterImplSSE : public RasterImpl {
@@ -519,6 +496,9 @@ struct RasterImplSSE : public RasterImpl {
 			sample.colour_rgba[0], sample.colour_rgba[1],
 			sample.colour_rgba[2], sample.colour_rgba[3]);
 	}
+	std::string name() const override {
+        return "Erkaman SSE";
+    }
 };
 
 struct RasterImplAVX : public RasterImpl {
@@ -537,17 +517,7 @@ struct RasterImplAVX : public RasterImpl {
 			sample.colour_rgba[0], sample.colour_rgba[1],
 			sample.colour_rgba[2], sample.colour_rgba[3]);
 	}
+	std::string name() const override {
+        return "Erkaman AVX";
+    }
 };
-
-int main() {
-    auto impl_plain = std::make_shared<RasterImplPlain>();
-    default_benchmark_main(impl_plain);
-
-    auto impl_sse = std::make_shared<RasterImplSSE>();
-    default_benchmark_main(impl_sse);
-
-	auto impl_avx = std::make_shared<RasterImplAVX>();
-    default_benchmark_main(impl_avx);
-
-	return 0;
-}

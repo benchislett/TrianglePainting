@@ -1,11 +1,18 @@
+#pragma once
+
 #include <iostream>
 #include <chrono>
 #include <vector>
 #include <random>
 #include <iomanip>
+#include <fstream>
 #include <memory>
+#include <cstdint>
 #include <string>
-#include "../include/image.h"
+
+#include <nlohmann/json.hpp>
+
+#include "image.h"
 
 struct SampleInput {
     float triangle[6];
@@ -16,6 +23,7 @@ struct RasterImpl {
     virtual void set_canvas(ImageView<RGBA255>) = 0;
     virtual void render(SampleInput) = 0;
     virtual void teardown() {}
+    virtual std::string name() const = 0;
 };
 
 std::vector<SampleInput> generate_samples(int N, int seed = 0) {
@@ -41,55 +49,131 @@ void clear_canvas(ImageView<RGBA255> canvas) {
     std::fill(canvas.begin(), canvas.end(), RGBA255{0, 0, 0, 255});
 }
 
-struct BenchmarkOutput {
+struct BenchmarkRecord {
+    // Metadata
+    std::string runner_name;
+    int canvas_width;
+    int canvas_height;
+    int num_trials;
+    int seed;
+
+    // Inputs
+    std::vector<SampleInput> input_samples;
+
+    // Results
     std::vector<double> times;
     double total_time;
     double iterations_per_second;
 };
 
-void benchmark_rasterization(
+BenchmarkRecord benchmark_rasterization(
     std::shared_ptr<RasterImpl> raster_impl,
     ImageView<RGBA255> canvas,
-    std::string output_filename,
     int N,
-    int seed = 0) {
-    auto samples = generate_samples(N, seed);
+    int seed) {
 
-    BenchmarkOutput output;
+    BenchmarkRecord record;
+    record.runner_name = raster_impl->name();
+    record.canvas_width = canvas.width();
+    record.canvas_height = canvas.height();
+    record.num_trials = N;
+    record.seed = seed;
+    
+    record.input_samples = generate_samples(N, seed);
+
     raster_impl->set_canvas(canvas);
     for (int i = 0; i < N; i++) {
         clear_canvas(canvas);
         auto start = std::chrono::high_resolution_clock::now();
-        raster_impl->render(samples[i]);
+        raster_impl->render(record.input_samples[i]);
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> duration = end - start;
-        output.times.push_back(duration.count());
+        record.times.push_back(duration.count());
     }
-    output.total_time = std::accumulate(output.times.begin(), output.times.end(), 0.0);
-    output.iterations_per_second = N / output.total_time;
 
-    // Pretty-print the output
-    std::cout << std::setw(16) << "Iteration"
-              << std::setw(16) << "Time (s)" << std::endl;
-
-    std::cout << std::string(31, '-') << std::endl;
-    std::cout << std::setw(16) << "Total Time"
-              << std::setw(16) << std::fixed << std::setprecision(6) << output.total_time
-              << std::endl;
-    std::cout << std::setw(16) << "Iter/s"
-              << std::setw(16) << std::fixed << std::setprecision(6) << output.iterations_per_second
-              << std::endl;
+    record.total_time = std::accumulate(
+        record.times.begin(), record.times.end(), 0.0);
     
-    // Save the output to a file
-    save_png_rgba(output_filename.c_str(), canvas);
+    record.iterations_per_second = N / record.total_time;
+
     raster_impl->teardown();
+    return record;
 }
 
-void default_benchmark_main(std::shared_ptr<RasterImpl> raster_impl) {
-    ImageView<RGBA255> canvas;
-    canvas.m_width = 128;
-    canvas.m_height = 128;
-    canvas.m_data = (RGBA255*) aligned_alloc(64, canvas.width() * canvas.height() * sizeof(RGBA255));
-    benchmark_rasterization(raster_impl, canvas, "output.png", 100000, 0);
-    free(canvas.data());
-}
+struct BenchmarkRunner {
+    std::vector<std::shared_ptr<RasterImpl>> m_runners;
+    std::vector<BenchmarkRecord> m_records;
+
+    BenchmarkRunner() {}
+
+    void add_runner(std::shared_ptr<RasterImpl> runner) {
+        m_runners.push_back(runner);
+    }
+
+    void run_benchmarks(int N, int seed, int canvas_size) {
+        ImageView<RGBA255> canvas;
+        canvas.m_width = canvas_size;
+        canvas.m_height = canvas_size;
+        canvas.m_data = (RGBA255*) aligned_alloc(64, canvas_size * canvas_size * sizeof(RGBA255));
+        for (auto runner : m_runners) {
+            clear_canvas(canvas);
+            m_records.push_back(benchmark_rasterization(runner, canvas, N, seed));
+            save_png_rgba(runner->name() + "_" + std::to_string(N) + ".png", canvas);
+        }
+        free(canvas.data());
+    }
+
+    void save_records(std::string output_file_csv = "", std::string output_file_json = "") const {
+        if (!output_file_csv.empty()) {
+            // Dump a CSV summary of the benchmark results
+            std::ofstream out(output_file_csv);
+            out << "runner_name,canvas_width,canvas_height,num_trials,seed,total_time,iterations_per_second\n";
+            for (const auto& record : m_records) {
+                out << record.runner_name << ","
+                << record.canvas_width << ","
+                << record.canvas_height << ","
+                << record.num_trials << ","
+                << record.seed << ","
+                << record.total_time << ","
+                << record.iterations_per_second;
+                out << '\n';
+            }
+        }
+        if (!output_file_json.empty()) {
+            // Dump a JSON summary of the full benchmark results
+            nlohmann::json json;
+
+            json["records"] = nlohmann::json::array();
+            for (const auto& record : m_records) {
+                nlohmann::json record_json;
+                record_json["runner_name"] = record.runner_name;
+                record_json["canvas_width"] = record.canvas_width;
+                record_json["canvas_height"] = record.canvas_height;
+                record_json["num_trials"] = record.num_trials;
+                record_json["seed"] = record.seed;
+                record_json["total_time"] = record.total_time;
+                record_json["iterations_per_second"] = record.iterations_per_second;
+                record_json["times"] = record.times;
+                record_json["input_samples"] = nlohmann::json::array();
+                for (const auto& sample : record.input_samples) {
+                    nlohmann::json sample_json;
+                    sample_json["triangle"] = {sample.triangle[0], sample.triangle[1], sample.triangle[2], sample.triangle[3], sample.triangle[4], sample.triangle[5]};
+                    sample_json["colour_rgba"] = {sample.colour_rgba[0], sample.colour_rgba[1], sample.colour_rgba[2], sample.colour_rgba[3]};
+                    record_json["input_samples"].push_back(sample_json);
+                }
+                json["records"].push_back(record_json);
+            }
+            
+            std::ofstream(output_file_json) << json.dump(4) << std::endl;
+        }
+    }
+};
+
+// void default_benchmark_main(std::shared_ptr<RasterImpl> raster_impl) {
+//     ImageView<RGBA255> canvas;
+//     canvas.m_width = 500;
+//     canvas.m_height = 500;
+//     canvas.m_data = (RGBA255*) aligned_alloc(64, canvas.width() * canvas.height() * sizeof(RGBA255));
+//     benchmark_rasterization(raster_impl, canvas, "output.png", 100000, 0);
+//     free(canvas.data());
+// }

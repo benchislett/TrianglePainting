@@ -1,10 +1,13 @@
+#pragma once
+
 #include <iostream>
 #include <chrono>
 #include <vector>
-#include "../include/rasterize.h"
-#include "../include/shaders.h"
-#include "../include/image.h"
-#include "../include/colours.h"
+
+#include "rasterize.h"
+#include "shaders.h"
+#include "image.h"
+#include "colours.h"
 
 #include "benchmark_triangle_rasterization.h"
 
@@ -30,16 +33,8 @@ struct PolypaintRasterImpl : public RasterImpl {
         config.image_height = im.height();
         rasterize(std::make_shared<Triangle>(triangle), shader, config);
     }
-};
 
-int main () {
-    auto impl1 = std::make_shared<PolypaintRasterImpl<RasterStrategy::Bounded>>();
-    auto impl2 = std::make_shared<PolypaintRasterImpl<RasterStrategy::Integer>>();
-    auto impl3 = std::make_shared<PolypaintRasterImpl<RasterStrategy::ScanlinePolygon>>();
-    auto impl4 = std::make_shared<PolypaintRasterImpl<RasterStrategy::TestNewPolygon>>();
-    default_benchmark_main(impl1);
-    default_benchmark_main(impl2);
-    default_benchmark_main(impl3);
-    default_benchmark_main(impl4);
-    return 0;
-}
+    std::string name() const override {
+        return "RasterDispatch " + raster_strategy_name(strategy);
+    }
+};

@@ -1,9 +1,11 @@
+#pragma once
+
 #include <iostream>
 #include <chrono>
 #include <vector>
 #include <cairo/cairo.h>
 
-#include "../include/image.h"
+#include "image.h"
 #include "benchmark_triangle_rasterization.h"
 
 struct CairoRasterImpl : public RasterImpl {
@@ -44,10 +46,8 @@ struct CairoRasterImpl : public RasterImpl {
         cairo_destroy(cr);
         cairo_surface_destroy(surface);
     }
-};
 
-int main () {
-    auto impl = std::make_shared<CairoRasterImpl>();
-    default_benchmark_main(impl);
-    return 0;
-}
+    std::string name() const override {
+        return "Cairo";
+    }
+};

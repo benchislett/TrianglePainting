@@ -3,16 +3,37 @@
 #include "shaders.h"
 #include "geometry.h"
 
+#include "utils.h"
+
 #include <memory>
 #include <cstring>
+#include <string>
 
 enum class RasterStrategy {
     Bounded,
     Integer,
-    ScanlinePolygon,
-    TestNewPolygon,
+    Scanline,
+    EdgeTable,
+    Binned,
     Default = Bounded
 };
+
+std::string raster_strategy_name(RasterStrategy strategy) {
+    switch (strategy) {
+        case RasterStrategy::Bounded:
+            return "Bounded";
+        case RasterStrategy::Integer:
+            return "Integer";
+        case RasterStrategy::Scanline:
+            return "Scanline";
+        case RasterStrategy::EdgeTable:
+            return "EdgeTable";
+        case RasterStrategy::Binned:
+            return "Binned";
+        default:
+            return "Unknown";
+    }
+}
 
 struct RasterConfig {
     RasterStrategy strategy = RasterStrategy::Default;
@@ -39,7 +60,7 @@ void rasterize(std::shared_ptr<Shape> shape, Shader& shader, const RasterConfig&
             throw std::runtime_error("Integer rasterization strategy is only supported for triangles.");
         }
         rasterize_triangle_integer(dynamic_cast<Triangle&>(*shape), config.image_width, config.image_height, shader);
-    } else if (config.strategy == RasterStrategy::ScanlinePolygon) {
+    } else if (config.strategy == RasterStrategy::Scanline) {
         if (T == ShapeType::Triangle) {
             rasterize_polygon_scanline(dynamic_cast<Triangle&>(*shape), config.image_width, config.image_height, shader);
         } else if (T == ShapeType::Polygon) {
@@ -47,7 +68,7 @@ void rasterize(std::shared_ptr<Shape> shape, Shader& shader, const RasterConfig&
         } else {
             throw std::runtime_error("Scanline polygon rasterization is only supported for triangles and polygons.");
         }
-    } else if (config.strategy == RasterStrategy::TestNewPolygon) {
+    } else if (config.strategy == RasterStrategy::EdgeTable) {
         if (T == ShapeType::Triangle) {
             if constexpr (std::is_same_v<Shader, CompositOverShader>) {
                 rasterize_test_polygon(dynamic_cast<Triangle&>(*shape), config.image_width, config.image_height, shader); 
@@ -56,6 +77,16 @@ void rasterize(std::shared_ptr<Shape> shape, Shader& shader, const RasterConfig&
             }
         } else {
             throw std::runtime_error("Test polygon rasterization is only supported for triangles.");
+        }
+    } else if (config.strategy == RasterStrategy::Binned) {
+        if (T == ShapeType::Triangle) {
+            if constexpr (std::is_same_v<Shader, CompositOverShader>) {
+                rasterize_triangle_binned(dynamic_cast<Triangle&>(*shape), config.image_width, config.image_height, shader);
+            } else {
+                throw std::runtime_error("Test polygon rasterization is only supported for CompositOverShader.");
+            }
+        } else {
+            throw std::runtime_error("Binned rasterization strategy is only supported for triangles.");
         }
     } else {
         throw std::runtime_error("Unsupported rasterization strategy.");
@@ -868,4 +899,101 @@ int ImagingDrawPolygon(int count, int *xy, int width, int height, Shader& shader
     free(e);
 
     return 0;
+}
+
+void rasterize_triangle_binned(const Triangle& tri, int width, int height, CompositOverShader& shader) {
+    float pts[6] = {
+        tri[0].x * width, tri[0].y * height,
+        tri[1].x * width, tri[1].y * height,
+        tri[2].x * width, tri[2].y * height
+    };
+    int pts_int[6] = {
+        int(pts[0]), int(pts[1]),
+        int(pts[2]), int(pts[3]),
+        int(pts[4]), int(pts[5])
+    };
+    int xmin = std::min({pts_int[0], pts_int[2], pts_int[4]});
+    int xmax = std::max({pts_int[0], pts_int[2], pts_int[4]});
+    int ymin = std::min({pts_int[1], pts_int[3], pts_int[5]});
+    int ymax = std::max({pts_int[1], pts_int[3], pts_int[5]});
+
+    xmin = clampi(xmin, 0, width - 1);
+    xmax = clampi(xmax + 1, 0, width - 1);
+    ymin = clampi(ymin, 0, height - 1);
+    ymax = clampi(ymax + 1, 0, height - 1);
+
+    int tile_size = 4;
+
+    for (int y_tile_start = ymin; y_tile_start < ymax; y_tile_start += tile_size) {
+        for (int x_tile_start = xmin; x_tile_start < xmax; x_tile_start += tile_size) {
+            // test four corners
+            int hits = 0;
+
+            float u,v;
+            int x = x_tile_start;
+            int y = y_tile_start;
+            u = x / (float)width;
+            v = y / (float)height;
+            if (tri.is_inside(Point{u, v})) {
+                hits++;
+            }
+
+            x += tile_size;
+            u = x / (float)width;
+            if (tri.is_inside(Point{u, v})) {
+                hits++;
+            }
+
+            y += tile_size;
+            v = y / (float)height;
+            if (tri.is_inside(Point{u, v})) {
+                hits++;
+            }
+
+            x -= tile_size;
+            u = x / (float)width;
+            if (tri.is_inside(Point{u, v})) {
+                hits++;
+            }
+
+            if (hits == 0) {
+                // check for a vertex inside this tile
+                for (int i = 0; i < 3; i++) {
+                    if (pts_int[2 * i + 0] >= x_tile_start && pts_int[2 * i + 0] <= x_tile_start + tile_size &&
+                        pts_int[2 * i + 1] >= y_tile_start && pts_int[2 * i + 1] <= y_tile_start + tile_size) {
+                        hits = 1;
+                        break;
+                    }
+                }
+                // no vertices inside this tile, skip
+                if (hits == 0) {
+                    continue;
+                }
+            } 
+            
+            if (hits == 4) {
+                // shade all pixels inside the tile
+                for (int y_idx = 0; y_idx < tile_size; y_idx++) {
+                    for (int x_idx = 0; x_idx < tile_size; x_idx++) {
+                        int x = x_tile_start + x_idx;
+                        int y = y_tile_start + y_idx;
+                        shader.render_pixel(x, y);
+                    }
+                }
+            } else {
+                // shade pixels one by one
+                for (int y_idx = 0; y_idx < tile_size; y_idx++) {
+                    for (int x_idx = 0; x_idx < tile_size; x_idx++) {
+                        int x = x_tile_start + x_idx;
+                        int y = y_tile_start + y_idx;
+                        float u = (x + 0.5f) / (float)width;
+                        float v = (y + 0.5f) / (float)height;
+                        if (tri.is_inside(Point{u, v})) {
+                            shader.render_pixel(x, y);
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

@@ -65,29 +65,45 @@ RGBA255 composit_over_premultiplied_255(const RGBA255& background, const RGBA255
 #define PRECISION_BITS 7
 #define SHIFTFORDIV255(a) ((((a) >> 8) + a) >> 8)
 
+/* like (a * b + 127) / 255), but much faster on most platforms */
+#define MULDIV255(a, b, tmp) (tmp = (a) * (b) + 128, SHIFTFORDIV255(tmp))
+
+#define DIV255(a, tmp) (tmp = (a) + 128, SHIFTFORDIV255(tmp))
+
+#define BLEND(mask, in1, in2, tmp1) DIV255(in1 * (255 - mask) + in2 * mask, tmp1)
+
 RGBA255 composit_over_straight_255(const RGBA255& background, const RGBA255 &foreground) {
-    if (foreground.a == 0) {
-        return background;
-    }
-    
-    unsigned int tmpr, tmpg, tmpb;
-    unsigned int blend = background.a * (255 - foreground.a);
-    unsigned int outa255 = foreground.a * 255 + blend;
+    // if (foreground.a == 0) {
+    //     return background;
+    // }
 
-    unsigned int coef1 = foreground.a * 255 * 255 * (1 << PRECISION_BITS) / outa255;
-    unsigned int coef2 = 255 * (1 << PRECISION_BITS) - coef1;
-
-    tmpr = foreground.r * coef1 + background.r * coef2;
-    tmpg = foreground.g * coef1 + background.g * coef2;
-    tmpb = foreground.b * coef1 + background.b * coef2;
-
+    int tmp;
     RGBA255 out;
-    out.r =
-        SHIFTFORDIV255(tmpr + (0x80 << PRECISION_BITS)) >> PRECISION_BITS;
-    out.g =
-        SHIFTFORDIV255(tmpg + (0x80 << PRECISION_BITS)) >> PRECISION_BITS;
-    out.b =
-        SHIFTFORDIV255(tmpb + (0x80 << PRECISION_BITS)) >> PRECISION_BITS;
-    out.a = SHIFTFORDIV255(outa255 + 0x80);
+
+    if (background.a == 255) {
+        out.r = BLEND(foreground.a, foreground.r, background.r, tmp);
+        out.g = BLEND(foreground.a, foreground.g, background.g, tmp);
+        out.b = BLEND(foreground.a, foreground.b, background.b, tmp);
+        out.a = 255;
+    } else {
+        unsigned int tmpr, tmpg, tmpb;
+        unsigned int blend = background.a * (255 - foreground.a);
+        unsigned int outa255 = foreground.a * 255 + blend;
+    
+        unsigned int coef1 = foreground.a * 255 * 255 * (1 << PRECISION_BITS) / outa255;
+        unsigned int coef2 = 255 * (1 << PRECISION_BITS) - coef1;
+    
+        tmpr = foreground.r * coef1 + background.r * coef2;
+        tmpg = foreground.g * coef1 + background.g * coef2;
+        tmpb = foreground.b * coef1 + background.b * coef2;
+    
+        out.r =
+            SHIFTFORDIV255(tmpr + (0x80 << PRECISION_BITS)) >> PRECISION_BITS;
+        out.g =
+            SHIFTFORDIV255(tmpg + (0x80 << PRECISION_BITS)) >> PRECISION_BITS;
+        out.b =
+            SHIFTFORDIV255(tmpb + (0x80 << PRECISION_BITS)) >> PRECISION_BITS;
+        out.a = SHIFTFORDIV255(outa255 + 0x80);
+    }
     return out;
 }
