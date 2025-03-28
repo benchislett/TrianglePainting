@@ -63,6 +63,7 @@ endif()
 include(CheckIPOSupported)
 check_ipo_supported(RESULT supported OUTPUT error)
 
+add_compile_options(-mavx2 -msse4.2)
 if( supported )
   message(STATUS "IPO / LTO is supported on this platform.")
   set_property(GLOBAL PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
@@ -144,7 +145,6 @@ foreach(EXPERIMENT ${EXPERIMENTS})
   target_link_libraries(${EXPERIMENT_NAME} ${Cairo_LIBRARIES})
   target_include_directories(${EXPERIMENT_NAME} PUBLIC ${Cairo_INCLUDE_DIRS})
   target_link_libraries(${EXPERIMENT_NAME} cairo)
-  target_compile_options(${EXPERIMENT_NAME} PRIVATE -msse4.2 -mavx2) # Enable SSE4.2 and AVX2
 endforeach()
 
 # set up python bindings
@@ -170,3 +170,11 @@ nanobind_add_module(polypaint STABLE_ABI NB_STATIC ${PYBINDINGS} ${PYHEADERS})
 target_link_libraries(polypaint PRIVATE ${PROJECT_NAME})
 target_include_directories(polypaint PRIVATE bindings)
 install(TARGETS polypaint LIBRARY DESTINATION polypaint)
+
+add_subdirectory(ext/benchmark)
+file(GLOB_RECURSE BENCHMARKS "benchmarks/*.cpp")
+file(GLOB_RECURSE BENCHMARK_HEADERS "benchmarks/*.h")
+add_executable(Benchmark ${BENCHMARKS} ${BENCHMARK_HEADERS})
+target_link_libraries(Benchmark benchmark::benchmark ${PROJECT_NAME})
+target_link_libraries(Benchmark benchmark::benchmark_main ${PROJECT_NAME})
+target_include_directories(Benchmark PUBLIC benchmarks)

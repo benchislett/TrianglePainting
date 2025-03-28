@@ -4,3 +4,6 @@
 [submodule "ext/diffvg"]
 	path = ext/diffvg
 	url = https://github.com/BachiLi/diffvg.git
+[submodule "ext/benchmark"]
+	path = ext/benchmark
+	url = https://github.com/google/benchmark.git
