@@ -266,3 +266,157 @@ __m256i alphaBlendAVX2_SinglePath(unsigned char* buf,
 
     return blended;
 }
+
+__m512i alphaBlendAVX512_SinglePath(unsigned char* buf, 
+    unsigned char r, 
+    unsigned char g, 
+    unsigned char b, 
+    unsigned char a) {
+    // Precompute the inverse alpha and constant terms.
+    // The blend is: result = DIV255( bg_channel * a + fg_channel * (255 - a) ).
+    const int invA = 255 - a;
+    const int F_r = r * invA;
+    const int F_g = g * invA;
+    const int F_b = b * invA;
+
+    // Build a 128-bit constant for one group of 4 pixels:
+    // Pattern per pixel is: { F_r, F_g, F_b, 0 }.
+    // For 4 pixels we need 4*4 = 16 16-bit values.
+    __m256i fg_const_256 = _mm256_setr_epi16(
+    (short)F_r, (short)F_g, (short)F_b, 0,
+    (short)F_r, (short)F_g, (short)F_b, 0,
+    (short)F_r, (short)F_g, (short)F_b, 0,
+    (short)F_r, (short)F_g, (short)F_b, 0);
+    // Broadcast this to a 256-bit constant (each 256-bit lane now has the same 16 16-bit values).
+    __m512i fg_const = _mm512_broadcast_i32x8(fg_const_256);
+
+    // Broadcast alpha into all 16-bit lanes.
+    __m512i alpha_vec = _mm512_set1_epi16((short)a);
+    // Constant used for the DIV255 approximation.
+    __m512i add128 = _mm512_set1_epi16(128);
+
+    // Masks for forcing the final alpha to 255.
+    __m512i color_mask = _mm512_set1_epi32(0x00ffffff);
+    __m512i alpha_mask = _mm512_set1_epi32(0xff000000);
+
+    // Load 8 pixels (32 bytes) from the buffer.
+    __m512i bg = _mm512_load_si512((__m512i*)buf);
+
+    // Create a 256-bit zero vector.
+    __m512i zero = _mm512_setzero_si512();
+
+    // Unpack 8-bit RGBA values to 16-bit integers.
+    // _mm256_unpacklo_epi8 and _mm256_unpackhi_epi8 operate on each 128-bit lane.
+    // The "lo" unpack yields the lower 8 bytes from each 128-bit lane interleaved with zero,
+    // which corresponds to the first 2 pixels from each lane (pixels 0,1 and 4,5).
+    // The "hi" unpack yields the upper 8 bytes from each 128-bit lane (pixels 2,3 and 6,7).
+    __m512i bg_lo = _mm512_unpacklo_epi8(bg, zero);
+    __m512i bg_hi = _mm512_unpackhi_epi8(bg, zero);
+
+    // Process the lower unpacked group.
+    __m512i mult_lo = _mm512_mullo_epi16(bg_lo, alpha_vec);
+    __m512i sum_lo  = _mm512_add_epi16(mult_lo, fg_const);
+    __m512i tmp_lo  = _mm512_add_epi16(sum_lo, add128);
+    __m512i tmp2_lo = _mm512_srli_epi16(tmp_lo, 8);
+    __m512i blended_lo = _mm512_srli_epi16(_mm512_add_epi16(tmp_lo, tmp2_lo), 8);
+
+    // Process the higher unpacked group.
+    __m512i mult_hi = _mm512_mullo_epi16(bg_hi, alpha_vec);
+    __m512i sum_hi  = _mm512_add_epi16(mult_hi, fg_const);
+    __m512i tmp_hi  = _mm512_add_epi16(sum_hi, add128);
+    __m512i tmp2_hi = _mm512_srli_epi16(tmp_hi, 8);
+    __m512i blended_hi = _mm512_srli_epi16(_mm512_add_epi16(tmp_hi, tmp2_hi), 8);
+
+    // Pack the two groups of 16-bit values into one 512-bit register of 8-bit values.
+    // _mm512_packus_epi16 packs each 128-bit lane separately.
+    __m512i blended = _mm512_packus_epi16(blended_lo, blended_hi);
+
+    // Force alpha to 255: clear alpha bytes then OR in 0xff000000 for each pixel.
+    blended = _mm512_or_si512(_mm512_and_si512(blended, color_mask), alpha_mask);
+
+    return blended;
+}
+
+// SIMD alpha-blending with premultiplied foreground using 256-bit intermediates.
+// Assumes bg is 128-bit with 4 pixels in RGBA order (8-bit per channel)
+// and that each background pixel has A == 0xff.
+// The foreground color is provided as (r,g,b,a) and is already premultiplied.
+// The blend is computed as: dst = fg + FastAlphaMult2(bg, 255 - a)
+// where FastAlphaMult2(x, w) = ((x*w + 0x80 + ((x*w + 0x80) >> 8)) >> 8)
+__m128i alphaBlendSSE_premultiplied(__m128i bg, unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
+    // Compute the background weighting factor: (255 - a)
+    int invA = 255 - a;
+    __m256i weight = _mm256_set1_epi16((short)invA);
+    
+    // Rounding constant 0x80 in every 16-bit lane.
+    __m256i roundConst = _mm256_set1_epi16(0x80);
+    
+    // Expand the 128-bit bg (16 uint8_t values) to 256-bit with 16-bit lanes.
+    __m256i bg16 = _mm256_cvtepu8_epi16(bg);
+    
+    // Multiply each channel by the weight.
+    __m256i prod = _mm256_mullo_epi16(bg16, weight);
+    prod = _mm256_add_epi16(prod, roundConst);
+    __m256i prodShift = _mm256_srli_epi16(prod, 8);
+    prod = _mm256_add_epi16(prod, prodShift);
+    prod = _mm256_srli_epi16(prod, 8);
+    
+    // Build a constant foreground pixel (packed as 0xAABBGGRR) and replicate it.
+    uint32_t fgPixel = (a << 24) | (b << 16) | (g << 8) | r;
+    __m128i fg128 = _mm_set1_epi32(fgPixel);  // replicate across 4 pixels (16 bytes)
+    __m256i fg16 = _mm256_cvtepu8_epi16(fg128); // expand fg to 16-bit lanes
+    
+    // Add the foreground to the background contribution.
+    __m256i out16 = _mm256_add_epi16(prod, fg16);
+    
+    // Pack the 16-bit results back into 8-bit values.
+    // _mm256_packus_epi16 packs two 256-bit registers into one 256-bit register.
+    // Using the same register twice gives the same data in both halves.
+    __m256i packed = _mm256_packus_epi16(out16, out16);
+    // Extract the lower 128 bits which contain our 4 pixels.
+    __m128i result = _mm256_extracti128_si256(packed, 0);
+    
+    // Force each pixel's alpha channel to 0xff.
+    __m128i alphaMask = _mm_set1_epi32(0xff000000);
+    result = _mm_or_si128(result, alphaMask);
+    
+    return result;
+}
+
+__m256i alphaBlendAVX512_premultiplied(__m256i bg, unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
+    int invA = 255 - a;
+    __m512i weight = _mm512_set1_epi16((short)invA);
+    
+    // Rounding constant 0x80 in every 16-bit lane.
+    __m512i roundConst = _mm512_set1_epi16(0x80);
+    
+    __m512i bg16 = _mm512_cvtepu8_epi16(bg);
+    
+    // Multiply each channel by the weight.
+    __m512i prod = _mm512_mullo_epi16(bg16, weight);
+    prod = _mm512_add_epi16(prod, roundConst);
+    __m512i prodShift = _mm512_srli_epi16(prod, 8);
+    prod = _mm512_add_epi16(prod, prodShift);
+    prod = _mm512_srli_epi16(prod, 8);
+    
+    // Build a constant foreground pixel (packed as 0xAABBGGRR) and replicate it.
+    uint32_t fgPixel = (a << 24) | (b << 16) | (g << 8) | r;
+    __m256i fg128 = _mm256_set1_epi32(fgPixel);  // replicate across 4 pixels (16 bytes)
+    __m512i fg16 = _mm512_cvtepu8_epi16(fg128); // expand fg to 16-bit lanes
+    
+    // Add the foreground to the background contribution.
+    __m512i out16 = _mm512_add_epi16(prod, fg16);
+    
+    // Pack the 16-bit results back into 8-bit values.
+    // _mm256_packus_epi16 packs two 256-bit registers into one 256-bit register.
+    // Using the same register twice gives the same data in both halves.
+    __m512i packed = _mm512_packus_epi16(out16, out16);
+    // Extract the lower 128 bits which contain our 4 pixels.
+    __m256i result = _mm512_cvtusepi16_epi8(packed);
+    
+    // Force each pixel's alpha channel to 0xff.
+    __m256i alphaMask = _mm256_set1_epi32(0xff000000);
+    result = _mm256_or_si256(result, alphaMask);
+    
+    return result;
+}
