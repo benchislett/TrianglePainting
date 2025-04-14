@@ -865,3 +865,111 @@ void rasterize_triangle_binned(const Triangle& tri, int width, int height, Compo
         }
     }
 }
+
+void rasterize_triangle_avx2_integer(const Triangle& tri, int width, int height, CompositOverShader& shader) {
+    // Convert triangle vertices to integer screen coordinates.
+    int xs[3] = { int(tri[0].x * width), int(tri[1].x * width), int(tri[2].x * width) };
+    int ys[3] = { int(tri[0].y * height), int(tri[1].y * height), int(tri[2].y * height) };
+
+    // Orient the triangle: if the area is negative, swap the first two vertices.
+    int w = (xs[1] - xs[0]) * (ys[2] - ys[0]) - (ys[1] - ys[0]) * (xs[2] - xs[0]);
+    if (w < 0) {
+        std::swap(xs[0], xs[1]);
+        std::swap(ys[0], ys[1]);
+    }
+
+    // Compute the bounding box of the triangle.
+    int lower_x = std::max(0, std::min({ xs[0], xs[1], xs[2] }));
+    int lower_y = std::max(0, std::min({ ys[0], ys[1], ys[2] }));
+    int upper_x = std::min(width - 1, std::max({ xs[0], xs[1], xs[2] }));
+    int upper_y = std::min(height - 1, std::max({ ys[0], ys[1], ys[2] }));
+
+    unsigned char* framebuffer = (unsigned char*) shader.background.data();
+    lower_x = lower_x - (lower_x % 8);
+
+    // Precompute coefficients for the three edge functions.
+    // We use the following definitions:
+    //   w0(P) = orient2d(V1, V2, P)
+    //   w1(P) = orient2d(V2, V0, P)
+    //   w2(P) = orient2d(V0, V1, P)
+    int A01 = ys[0] - ys[1], B01 = xs[1] - xs[0];
+    int A12 = ys[1] - ys[2], B12 = xs[2] - xs[1];
+    int A20 = ys[2] - ys[0], B20 = xs[0] - xs[2];
+
+    auto orient2d = [](int ax, int ay, int bx, int by, int cx, int cy) -> int {
+        return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+    };
+
+    // Compute the starting edge values at the upper-left corner of the bounding box.
+    int w0_row = orient2d(xs[1], ys[1], xs[2], ys[2], lower_x, lower_y);
+    int w1_row = orient2d(xs[2], ys[2], xs[0], ys[0], lower_x, lower_y);
+    int w2_row = orient2d(xs[0], ys[0], xs[1], ys[1], lower_x, lower_y);
+
+    // For horizontal stepping, each pixel increases the edge functions by:
+    //    w0: +A12,  w1: +A20,  w2: +A01.
+    // For vertical stepping (per scanline), the starting values are incremented by:
+    //    w0: +B12,  w1: +B20,  w2: +B01.
+
+    // Prepare the constant source color (compositing colour) in packed 32-bit format.
+    uint32_t src_color_int = (shader.colour.a << 24) | (shader.colour.r << 16) |
+                               (shader.colour.g << 8)  | (shader.colour.b);
+    __m256i src_color = _mm256_set1_epi32(src_color_int);
+
+    // A vector of offsets [0, 1, 2, 3, 4, 5, 6, 7] for processing eight pixels.
+    __m256i offset_base = _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7);
+    __m256i step_w0 = _mm256_set1_epi32(A12);
+    __m256i step_w1 = _mm256_set1_epi32(A20);
+    __m256i step_w2 = _mm256_set1_epi32(A01);
+
+    // Get pointer to the framebuffer.
+
+    // Loop over each scanline in the bounding box.
+    for (int y = lower_y; y <= upper_y; y++) {
+        int w0_cur = w0_row;
+        int w1_cur = w1_row;
+        int w2_cur = w2_row;
+
+        // Process in blocks of 8 pixels.
+        for (int x = lower_x; x <= upper_x; x += 8) {
+            // Build the w0..w2 vectors from these accumulators.
+            __m256i w0_vec = _mm256_setr_epi32(
+                w0_cur, w0_cur + A12, w0_cur + 2*A12, w0_cur + 3*A12,
+                w0_cur + 4*A12, w0_cur + 5*A12, w0_cur + 6*A12, w0_cur + 7*A12
+            );
+            __m256i w1_vec = _mm256_setr_epi32(
+                w1_cur, w1_cur + A20, w1_cur + 2*A20, w1_cur + 3*A20,
+                w1_cur + 4*A20, w1_cur + 5*A20, w1_cur + 6*A20, w1_cur + 7*A20
+            );
+            __m256i w2_vec = _mm256_setr_epi32(
+                w2_cur, w2_cur + A01, w2_cur + 2*A01, w2_cur + 3*A01,
+                w2_cur + 4*A01, w2_cur + 5*A01, w2_cur + 6*A01, w2_cur + 7*A01
+            );
+
+            // Determine which pixels are inside.
+            __m256i mask0 = _mm256_cmpgt_epi32(w0_vec, _mm256_set1_epi32(-1));
+            __m256i mask1 = _mm256_cmpgt_epi32(w1_vec, _mm256_set1_epi32(-1));
+            __m256i mask2 = _mm256_cmpgt_epi32(w2_vec, _mm256_set1_epi32(-1));
+            __m256i in_mask = _mm256_and_si256(mask0, _mm256_and_si256(mask1, mask2));
+
+            int pixel_index = y * width + x;
+            unsigned char* ptr = framebuffer + pixel_index * 4;
+
+            __m256i dest_pixels = _mm256_load_si256((__m256i const*)ptr);
+            __m256i blended_pixels = alphaBlendAVX2_SinglePath(
+                ptr, shader.colour.r, shader.colour.g, shader.colour.b, shader.colour.a
+            );
+            __m256i result_pixels = _mm256_blendv_epi8(dest_pixels, blended_pixels, in_mask);
+            _mm256_store_si256((__m256i*)ptr, result_pixels);
+
+            // Advance accumulators by 8 steps horizontally.
+            w0_cur += 8*A12;
+            w1_cur += 8*A20;
+            w2_cur += 8*A01;
+        }
+
+        // Advance the row starting values by the vertical increments.
+        w0_row += B12;
+        w1_row += B20;
+        w2_row += B01;
+    }
+}
