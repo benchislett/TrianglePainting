@@ -8,12 +8,12 @@ int main() {
     runner.add_runner(std::make_shared<CairoRasterImpl>());
     runner.add_runner(std::make_shared<PolypaintRasterImpl<RasterStrategy::Bounded>>());
     runner.add_runner(std::make_shared<PolypaintRasterImpl<RasterStrategy::Integer>>());
-    runner.add_runner(std::make_shared<PolypaintRasterImpl<RasterStrategy::Scanline>>());
-    runner.add_runner(std::make_shared<PolypaintRasterImpl<RasterStrategy::EdgeTable>>());
+    // runner.add_runner(std::make_shared<PolypaintRasterImpl<RasterStrategy::Scanline>>());
+    // runner.add_runner(std::make_shared<PolypaintRasterImpl<RasterStrategy::EdgeTable>>());
     runner.add_runner(std::make_shared<PolypaintRasterImpl<RasterStrategy::Binned>>());
-    runner.add_runner(std::make_shared<RasterImplPlain>());
-    runner.add_runner(std::make_shared<RasterImplSSE>());
-    runner.add_runner(std::make_shared<RasterImplAVX>());
+    // runner.add_runner(std::make_shared<RasterImplPlain>());
+    // runner.add_runner(std::make_shared<RasterImplSSE>());
+    // runner.add_runner(std::make_shared<RasterImplAVX>());
     const int N = 1000;
     std::cout << "Start 64\n";
     runner.run_benchmarks(N, 0, 64);

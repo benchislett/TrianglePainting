@@ -27,7 +27,8 @@
                 "${workspaceFolder}/ext/lodepng",
                 "${workspaceFolder}/include",
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/build/_deps/json-src/include"
+                "${workspaceFolder}/build/_deps/json-src/include",
+                "${workspaceFolder}/experiments"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",

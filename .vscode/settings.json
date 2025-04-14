@@ -58,9 +58,29 @@
         "valarray": "cpp",
         "system_error": "cpp",
         "regex": "cpp",
-        "__node_handle": "cpp"
-    },
-    "cmake.configureSettings": {
-        "Python_EXECUTABLE": "${workspaceFolder}/.venv/bin/python"
+        "__node_handle": "cpp",
+        "map": "cpp",
+        "set": "cpp",
+        "variant": "cpp",
+        "iomanip": "cpp",
+        "fstream": "cpp",
+        "filesystem": "cpp",
+        "__locale": "cpp",
+        "semaphore": "cpp",
+        "locale": "cpp",
+        "__config": "cpp",
+        "forward_list": "cpp",
+        "unordered_set": "cpp",
+        "mutex": "cpp",
+        "typeindex": "cpp",
+        "any": "cpp",
+        "clocale": "cpp",
+        "codecvt": "cpp",
+        "condition_variable": "cpp",
+        "deque": "cpp",
+        "shared_mutex": "cpp",
+        "stop_token": "cpp",
+        "text_encoding": "cpp",
+        "thread": "cpp"
     }
 }
