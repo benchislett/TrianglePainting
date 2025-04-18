@@ -28,14 +28,18 @@
                 "${workspaceFolder}/include",
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/build/_deps/json-src/include",
-                "${workspaceFolder}/experiments"
+                "${workspaceFolder}/experiments",
+                "${workspaceFolder}/benchmarks"
             ],
             "defines": [],
-            "compilerPath": "/usr/bin/gcc",
-            "cStandard": "c17",
-            "cppStandard": "c++17",
-            "intelliSenseMode": "gcc-x64",
-            "configurationProvider": "ms-vscode.cmake-tools"
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "c23",
+            "cppStandard": "c++23",
+            "intelliSenseMode": "linux-gcc-x64",
+            "configurationProvider": "ms-vscode.cmake-tools",
+            "compileCommands": [
+                "${workspaceFolder}/build/compile_commands.json"
+            ]
         }
     ],
     "version": 4

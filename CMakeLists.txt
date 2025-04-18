@@ -40,9 +40,11 @@ endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
   message("Enabling Release optimizations")
-  add_compile_options(-O3 -march=native -mtune=native -ffast-math -fno-strict-aliasing)
-  add_link_options(-O3 -march=native -mtune=native -ffast-math -fno-strict-aliasing)
+  add_compile_options(-O3 -march=native -mtune=native -ffast-math)
+  add_link_options(-O3 -march=native -mtune=native -ffast-math)
 endif()
+
+add_compile_options(-mavx512f -mavx512vl -mavx512dq -mavx512bw -mavx512cd)
 
 include(FetchContent)
 
@@ -147,3 +149,11 @@ foreach(EXPERIMENT ${EXPERIMENTS})
   target_include_directories(${EXPERIMENT_NAME} PUBLIC ${Cairo_INCLUDE_DIRS})
   target_link_libraries(${EXPERIMENT_NAME} cairo)
 endforeach()
+
+add_subdirectory(ext/benchmark)
+file(GLOB_RECURSE BENCHMARKS "benchmarks/*.cpp")
+file(GLOB_RECURSE BENCHMARK_HEADERS "benchmarks/*.h")
+add_executable(Benchmark ${BENCHMARKS} ${BENCHMARK_HEADERS})
+target_link_libraries(Benchmark benchmark::benchmark ${PROJECT_NAME})
+target_link_libraries(Benchmark benchmark::benchmark_main ${PROJECT_NAME})
+target_include_directories(Benchmark PUBLIC benchmarks)
