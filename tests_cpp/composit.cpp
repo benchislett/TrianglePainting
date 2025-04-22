@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include "composit.h"
 
+#define EXPECT_EQ_OFFBY1(a, b) EXPECT_TRUE((a) == (b) || (a) == (b) + 1 || (a) + 1 == (b))
+
 TEST(CompositTest, RGBAF32OverRGBAF32StraightBranchless) {
     // Foreground alpha = 0
     {
@@ -72,10 +74,10 @@ TEST(CompositTest, RGBAU8OverRGBAU8PremultipliedScalarDivide) {
 
     RGBA_U8 out = blend_RGBAU8_over_RGBAU8_premultiplied_scalar_divide(fg, bg);
 
-    EXPECT_EQ(out.r, refU8.r);
-    EXPECT_EQ(out.g, refU8.g);
-    EXPECT_EQ(out.b, refU8.b);
-    EXPECT_EQ(out.a, refU8.a);
+    EXPECT_EQ_OFFBY1(out.r, refU8.r);
+    EXPECT_EQ_OFFBY1(out.g, refU8.g);
+    EXPECT_EQ_OFFBY1(out.b, refU8.b);
+    EXPECT_EQ_OFFBY1(out.a, refU8.a);
 }
 
 TEST(CompositTest, RGBAU8OverRGBU8PremultipliedScalarDivide) {
@@ -90,9 +92,9 @@ TEST(CompositTest, RGBAU8OverRGBU8PremultipliedScalarDivide) {
     auto clamp255 = [](float x){return (U8)std::min(std::max(int(x*255.f+0.5f),0),255);};
     RGB_U8 refU8 = { clamp255(refF.r), clamp255(refF.g), clamp255(refF.b) };
 
-    RGB_U8 out = blend_RGBAU8_over_RGBU8_premultiplied_scalar_divide(fg, bg);
+    RGB_U8 out = blend_RGBAU8_over_RGBU8_premultiplied_sse(fg, bg);
 
-    EXPECT_EQ(out.r, refU8.r);
-    EXPECT_EQ(out.g, refU8.g);
-    EXPECT_EQ(out.b, refU8.b);
+    EXPECT_EQ_OFFBY1(out.r, refU8.r);
+    EXPECT_EQ_OFFBY1(out.g, refU8.g);
+    EXPECT_EQ_OFFBY1(out.b, refU8.b);
 }

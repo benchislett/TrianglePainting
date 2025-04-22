@@ -29,14 +29,14 @@ using RGB_F32 = RGB<F32>;
 
 /* Random initializers for specialized pixel types */
 
-F32 random_F32(F32 min, F32 max) {
+inline F32 random_F32(F32 min, F32 max) {
     static std::random_device rd;
     static std::mt19937 gen(rd());
     std::uniform_real_distribution<F32> dis(min, max);
     return dis(gen);
 }
 
-I32 random_I32(I32 min, I32 max) {
+inline I32 random_I32(I32 min, I32 max) {
     static std::random_device rd;
     static std::mt19937 gen(rd());
     std::uniform_int_distribution<I32> dis(min, max);

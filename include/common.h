@@ -2,6 +2,7 @@
 
 #include <cstdlib>
 #include <cstdint>
+#include <cstring>
 #include <cmath>
 
 #include <immintrin.h>
@@ -20,7 +21,7 @@ using I64 = int64_t;
 using F32 = float;
 using F64 = double;
 
-void* allocate_aligned(size_t size, size_t alignment = 4096) {
+inline void* allocate_aligned(size_t size, size_t alignment = 4096) {
     void* ptr = nullptr;
     if (posix_memalign(&ptr, alignment, size) != 0) {
         fprintf(stderr, "Aligned memory allocation failed\n");

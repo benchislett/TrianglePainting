@@ -83,7 +83,7 @@ void fast_avx512_vecadd_F32(void * __restrict dest, const void* __restrict src, 
 }
 
 template<typename T, typename Op>
-void BM_bufferop_image_generic(benchmark::State& state, Op op) {
+void BM_bufferop_image_generic(benchmark::State& state, Op&& op) {
     const int length = state.range(0);
     const int N = length * length * 4; // 4 channels (RGBA)
 
