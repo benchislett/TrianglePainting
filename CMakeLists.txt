@@ -1,7 +1,7 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.30)
 set(CMAKE_CXX_STANDARD 23)
 
-project(PolyPaintLib LANGUAGES CXX)
+project(TrianglesProject LANGUAGES CXX)
 
 option(USE_CUDA "Use CUDA" ON)
 
@@ -16,8 +16,8 @@ if(USE_CUDA)
   enable_language(CUDA)
   set(CMAKE_CUDA_ARCHITECTURES "89")
   find_package(CUDAToolkit REQUIRED)
-  # find_package(Thrust REQUIRED)
-  # thrust_create_target(Thrust)
+  find_package(Thrust REQUIRED)
+  thrust_create_target(Thrust)
 endif()
 
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -26,25 +26,25 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 # enable AddressSanitizer if in debug mode
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-  message("Enabling AddressSanitizer")
-  add_compile_options(-fsanitize=address)
-  add_link_options(-fsanitize=address)
-endif()
+# if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+#   message("Enabling AddressSanitizer")
+#   add_compile_options(-fsanitize=address)
+#   add_link_options(-fsanitize=address)
+# endif()
 
-if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
-  message("Enabling no-omit-frame-pointer")
-  add_compile_options(-fno-omit-frame-pointer)
-  add_link_options(-fno-omit-frame-pointer)
-endif()
+# if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+#   message("Enabling no-omit-frame-pointer")
+#   add_compile_options(-fno-omit-frame-pointer)
+#   add_link_options(-fno-omit-frame-pointer)
+# endif()
 
-if (CMAKE_BUILD_TYPE STREQUAL "Release")
-  message("Enabling Release optimizations")
-  add_compile_options(-O3 -march=native -mtune=native -ffast-math)
-  add_link_options(-O3 -march=native -mtune=native -ffast-math)
-endif()
+# if (CMAKE_BUILD_TYPE STREQUAL "Release")
+#   message("Enabling Release optimizations")
+#   add_compile_options(-O3 -march=native -mtune=native -ffast-math)
+#   add_link_options(-O3 -march=native -mtune=native -ffast-math)
+# endif()
 
-add_compile_options(-mavx512f -mavx512vl -mavx512dq -mavx512bw -mavx512cd)
+# add_compile_options(-mavx512f -mavx512vl -mavx512dq -mavx512bw -mavx512cd)
 
 include(FetchContent)
 
@@ -57,103 +57,88 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Collect headers for the core library
-file(GLOB_RECURSE HEADERS "include/*.h")
+file(GLOB_RECURSE CORE_HEADER_FILES "src/*.h")
+file(GLOB_RECURSE CORE_IMPLEMENTATION_FILES "src/*.cpp")
 
-if(USE_CUDA)
-  file(GLOB_RECURSE CUDA_HEADERS "include/*.cuh")
-  list(APPEND HEADERS ${CUDA_HEADERS})
-endif()
-
+add_library(TrianglesProjectCore ${CORE_HEADER_FILES} ${CORE_IMPLEMENTATION_FILES})
+target_include_directories(TrianglesProjectCore PUBLIC "src/")
 # set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-include(CheckIPOSupported)
-check_ipo_supported(RESULT supported OUTPUT error)
+# include(CheckIPOSupported)
+# check_ipo_supported(RESULT supported OUTPUT error)
 
-if( supported )
-  message(STATUS "IPO / LTO is supported on this platform.")
-  add_compile_options(-flto=auto -fno-fat-lto-objects )
-  add_link_options(-flto=auto -fno-fat-lto-objects)
-else()
-  message(STATUS "IPO / LTO not supported: <${error}>")
-endif()
-
-# Define PolyPaintLib as a header-only library
-add_library(${PROJECT_NAME} INTERFACE)
-target_include_directories(${PROJECT_NAME} INTERFACE include)
+# if( supported )
+#   message(STATUS "IPO / LTO is supported on this platform.")
+#   add_compile_options(-flto=auto) # -fno-fat-lto-objects
+#   add_link_options(-flto=auto)
+# else()
+#   message(STATUS "IPO / LTO not supported: <${error}>")
+# endif()
 
 if(USE_CUDA)
-  target_link_libraries(${PROJECT_NAME} INTERFACE CUDA::cublas CUDA::cudart)
-  # target_link_libraries(${PROJECT_NAME} INTERFACE Thrust)
+  target_link_libraries(TrianglesProjectCore INTERFACE CUDA::cublas CUDA::cudart)
+  target_link_libraries(TrianglesProjectCore INTERFACE Thrust)
 endif()
 
 # LodePNG dependency
 add_library(LodePNG STATIC "ext/lodepng/lodepng.cpp" "ext/lodepng/lodepng.h")
 target_include_directories(LodePNG PUBLIC "ext/lodepng/")
-target_link_libraries(${PROJECT_NAME} INTERFACE LodePNG)
+target_link_libraries(TrianglesProjectCore INTERFACE LodePNG)
 
 # JSON dependency
 FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz)
 FetchContent_MakeAvailable(json)
-target_link_libraries(${PROJECT_NAME} INTERFACE nlohmann_json::nlohmann_json)
+target_link_libraries(TrianglesProjectCore INTERFACE nlohmann_json::nlohmann_json)
 
 # OpenGL dependency
 find_package(OpenGL REQUIRED)
-target_link_libraries(${PROJECT_NAME} INTERFACE OpenGL::GL OpenGL::GLU)
+target_link_libraries(TrianglesProjectCore INTERFACE OpenGL::GL OpenGL::GLU)
 # GLM dependency
 find_package(glm REQUIRED)
-target_link_libraries(${PROJECT_NAME} INTERFACE glm::glm)
+target_link_libraries(TrianglesProjectCore INTERFACE glm::glm)
 # GLFW dependency
 find_package(glfw3 REQUIRED)
-target_link_libraries(${PROJECT_NAME} INTERFACE glfw)
+target_link_libraries(TrianglesProjectCore INTERFACE glfw)
 # GLEW dependency
 find_package(GLEW REQUIRED)
-target_link_libraries(${PROJECT_NAME} INTERFACE GLEW::GLEW)
-
-# set up GoogleTest
+target_link_libraries(TrianglesProjectCore INTERFACE GLEW::GLEW)
+# Cairo dependency
+find_package(Cairo REQUIRED)
+target_link_libraries(TrianglesProjectCore INTERFACE cairo)
+target_link_libraries(TrianglesProjectCore INTERFACE ${Cairo_LIBRARIES})
+target_include_directories(TrianglesProjectCore INTERFACE ${Cairo_INCLUDE_DIRS})
+# GoogleTest dependency
 FetchContent_Declare(
   googletest
   GIT_REPOSITORY https://github.com/google/googletest.git
   GIT_TAG        main
-)
+  )
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
-
-# load googletest tests
-enable_testing()
-
-# Collect test sources
-file(GLOB_RECURSE TESTS "tests_cpp/*.cpp")
-add_executable(Test ${TESTS})
-target_link_libraries(Test GTest::gtest_main ${PROJECT_NAME})
-
 include(GoogleTest)
-gtest_discover_tests(Test)
-
-find_package(Cairo REQUIRED)
-
-# set up experiments
-# create an executable for each .cpp source file in folder "experiments"
-file(GLOB_RECURSE EXPERIMENTS "experiments/*.cpp")
-file(GLOB_RECURSE EXPERIMENT_HEADERS "experiments/*.h")
-
-if(USE_CUDA)
-  file(GLOB_RECURSE CUDA_EXPERIMENTS "experiments/*.cu")
-  list(APPEND EXPERIMENTS ${CUDA_EXPERIMENTS})
-endif()
-
-foreach(EXPERIMENT ${EXPERIMENTS})
-  get_filename_component(EXPERIMENT_NAME ${EXPERIMENT} NAME_WE)
-  add_executable(${EXPERIMENT_NAME} ${EXPERIMENT} ${EXPERIMENT_HEADERS})
-  target_link_libraries(${EXPERIMENT_NAME} ${PROJECT_NAME})
-  target_include_directories(${EXPERIMENT_NAME} PUBLIC experiments)
-  target_link_libraries(${EXPERIMENT_NAME} ${Cairo_LIBRARIES})
-  target_include_directories(${EXPERIMENT_NAME} PUBLIC ${Cairo_INCLUDE_DIRS})
-  target_link_libraries(${EXPERIMENT_NAME} cairo)
-endforeach()
-
+# Initialize GoogleTest
+enable_testing()
+# GoogleBenchmark dependency
 add_subdirectory(ext/benchmark)
-file(GLOB_RECURSE BENCHMARKS "benchmarks/*.cpp")
-file(GLOB_RECURSE BENCHMARK_HEADERS "benchmarks/*.h")
-add_executable(Benchmark ${BENCHMARKS} ${BENCHMARK_HEADERS})
-target_link_libraries(Benchmark benchmark::benchmark ${PROJECT_NAME})
-target_link_libraries(Benchmark benchmark::benchmark_main ${PROJECT_NAME})
-target_include_directories(Benchmark PUBLIC benchmarks)
+
+# For each subfolder in the "experiments/" folder, create a separate executable
+file(GLOB EXPERIMENTS_DIRS "experiments/*")
+foreach(EXPERIMENT_DIR ${EXPERIMENTS_DIRS})
+  if(IS_DIRECTORY ${EXPERIMENT_DIR})
+    get_filename_component(EXPERIMENT_NAME ${EXPERIMENT_DIR} NAME)
+    file(GLOB_RECURSE EXPERIMENT_IMPL_HEADERS "${EXPERIMENT_DIR}/*.h")
+    file(GLOB_RECURSE EXPERIMENT_TEST_FILES "${EXPERIMENT_DIR}/test*.cpp")
+    file(GLOB_RECURSE EXPERIMENT_BENCH_FILES "${EXPERIMENT_DIR}/bench*.cpp")
+
+    # create test executable and benchmark executable
+    add_executable(${EXPERIMENT_NAME}_test ${EXPERIMENT_TEST_FILES} ${EXPERIMENT_IMPL_HEADERS})
+    target_link_libraries(${EXPERIMENT_NAME}_test GTest::gtest_main TrianglesProjectCore)
+    target_include_directories(${EXPERIMENT_NAME}_test PUBLIC ${EXPERIMENT_DIR})
+    gtest_discover_tests(${EXPERIMENT_NAME}_test)
+
+    add_executable(${EXPERIMENT_NAME}_bench ${EXPERIMENT_BENCH_FILES} ${EXPERIMENT_IMPL_HEADERS})
+    target_link_libraries(${EXPERIMENT_NAME}_bench TrianglesProjectCore)
+    target_link_libraries(${EXPERIMENT_NAME}_bench benchmark::benchmark)
+    target_link_libraries(${EXPERIMENT_NAME}_bench benchmark::benchmark_main)
+    target_include_directories(${EXPERIMENT_NAME}_bench PUBLIC ${EXPERIMENT_DIR})
+  endif()
+endforeach()
