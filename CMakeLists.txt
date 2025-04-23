@@ -44,7 +44,7 @@ endif()
 #   add_link_options(-O3 -march=native -mtune=native -ffast-math)
 # endif()
 
-# add_compile_options(-mavx512f -mavx512vl -mavx512dq -mavx512bw -mavx512cd)
+add_compile_options(-mavx512f -mavx512vl -mavx512dq -mavx512bw -mavx512cd)
 
 include(FetchContent)
 
