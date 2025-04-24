@@ -6,13 +6,6 @@
 #include <random>
 #include <immintrin.h>
 
-unsigned char random_u8() {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    static std::uniform_int_distribution<unsigned char> dis(0, 255);
-    return dis(gen);
-}
-
 void BM_memcpy(benchmark::State& state) {
     const int N = state.range(0) * state.range(0) * 4;
     unsigned char* bg = (unsigned char*)allocate_aligned(N);
