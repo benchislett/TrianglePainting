@@ -59,6 +59,13 @@ inline __m256i DivideI16x16By255Approx(__m256i value)
     return _mm256_srli_epi16(value, 8);
 }
 
+inline __m512i DivideI16x32By255Approx(__m512i value)
+{
+    value = _mm512_add_epi16(value, _mm512_set1_epi16(0x80U)); // value + 128
+    value = _mm512_mulhi_epu16(value, _mm512_set1_epi16(257)); // (value * 257) >> 16
+    return value;
+}
+
 inline void blend_RGBAU8_over_RGBU8_premultiplied_sse(
     unsigned char fg_r, unsigned char fg_g, unsigned char fg_b, unsigned char fg_a,
     unsigned char bg_r, unsigned char bg_g, unsigned char bg_b,
@@ -106,4 +113,15 @@ inline void blend_RGBAU16x16_over_RGBU16x16_premultiplied_avx(
     out_r = _mm256_add_epi16(fg_r, DivideI16x16By255Approx(_mm256_mullo_epi16(bg_r, fg_1minus_a)));
     out_g = _mm256_add_epi16(fg_g, DivideI16x16By255Approx(_mm256_mullo_epi16(bg_g, fg_1minus_a)));
     out_b = _mm256_add_epi16(fg_b, DivideI16x16By255Approx(_mm256_mullo_epi16(bg_b, fg_1minus_a)));
+}
+
+inline void blend_RGBAU16x32_over_RGBU16x32_premultiplied_avx512(
+    __m512i fg_r, __m512i fg_g, __m512i fg_b, __m512i fg_a,
+    __m512i bg_r, __m512i bg_g, __m512i bg_b,
+    __m512i& out_r, __m512i& out_g, __m512i& out_b
+) {
+    __m512i fg_1minus_a = _mm512_sub_epi16(_mm512_set1_epi16(255), fg_a);
+    out_r = _mm512_add_epi16(fg_r, DivideI16x32By255Approx(_mm512_mullo_epi16(bg_r, fg_1minus_a)));
+    out_g = _mm512_add_epi16(fg_g, DivideI16x32By255Approx(_mm512_mullo_epi16(bg_g, fg_1minus_a)));
+    out_b = _mm512_add_epi16(fg_b, DivideI16x32By255Approx(_mm512_mullo_epi16(bg_b, fg_1minus_a)));
 }

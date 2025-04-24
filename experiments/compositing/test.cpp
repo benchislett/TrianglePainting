@@ -104,6 +104,23 @@ void blend_RGBAU8_over_RGBU8_premultiplied_via_16bitAVXx16(
     out_b = _mm256_extract_epi32(out_b_x16, 0);
 }
 
+void blend_RGBAU8_over_RGBU8_premultiplied_via_16bitAVX512x32(
+    unsigned char fg_r, unsigned char fg_g, unsigned char fg_b, unsigned char fg_a,
+    unsigned char bg_r, unsigned char bg_g, unsigned char bg_b,
+    unsigned char& out_r, unsigned char& out_g, unsigned char& out_b) {
+    __m512i out_r_x32, out_g_x32, out_b_x32;
+    blend_RGBAU16x32_over_RGBU16x32_premultiplied_avx512(
+        _mm512_set1_epi32(fg_r), _mm512_set1_epi32(fg_g), _mm512_set1_epi32(fg_b), _mm512_set1_epi32(fg_a),
+        _mm512_set1_epi32(bg_r), _mm512_set1_epi32(bg_g), _mm512_set1_epi32(bg_b),
+        out_r_x32, out_g_x32, out_b_x32);
+    __m128i out_r_x4 = _mm512_extracti32x4_epi32(out_r_x32, 0);
+    __m128i out_g_x4 = _mm512_extracti32x4_epi32(out_g_x32, 0);
+    __m128i out_b_x4 = _mm512_extracti32x4_epi32(out_b_x32, 0);
+    out_r = _mm_extract_epi32(out_r_x4, 0);
+    out_g = _mm_extract_epi32(out_g_x4, 0);
+    out_b = _mm_extract_epi32(out_b_x4, 0);
+}
+
 INSTANTIATE_TEST_SUITE_P(
     CompositingTests,
     PremultipliedBlendU8Test,
@@ -113,7 +130,8 @@ INSTANTIATE_TEST_SUITE_P(
         &blend_RGBAU8_over_RGBU8_premultiplied_sse,
         &blend_RGBAU8_over_RGBU8_premultiplied_via_32bitSSEx4,
         &blend_RGBAU8_over_RGBU8_premultiplied_via_16bitSSEx8,
-        &blend_RGBAU8_over_RGBU8_premultiplied_via_16bitAVXx16),
+        &blend_RGBAU8_over_RGBU8_premultiplied_via_16bitAVXx16,
+        &blend_RGBAU8_over_RGBU8_premultiplied_via_16bitAVX512x32),
     [](const ::testing::TestParamInfo<BlendFuncU8>& info) {
         if (info.param == &blend_RGBAU8_over_RGBU8_premultiplied_scalar)
             return "Scalar";
@@ -127,5 +145,7 @@ INSTANTIATE_TEST_SUITE_P(
             return "16bitSSEx8";
         if (info.param == &blend_RGBAU8_over_RGBU8_premultiplied_via_16bitAVXx16)
             return "16bitAVXx16";
+        if (info.param == &blend_RGBAU8_over_RGBU8_premultiplied_via_16bitAVX512x32)
+            return "16bitAVX512x32";
         return "Unknown";
     });
